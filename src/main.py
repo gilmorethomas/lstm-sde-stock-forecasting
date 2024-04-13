@@ -35,7 +35,82 @@ def preprocessing_callback(df):
     # Preprocess the dataset
     # Remove any missing values
     df = df.dropna()
+    for col in df.columns:
+        if df[col].dtype == 'object':
+            logging.info(f'Skipping normalization for {col=}, as dtype is object') 
+            continue
+        else:
+    # Normalize the dataset, giving a max of 1 and min of 0
+            df[col] = (df[col] - df[col].min()) / (df[col].max() - df[col].min())
+    # Impute data using data from the previous day
+    df = df.fillna(method='ffill')
+    # Set the index to the date
+    #df = df.set_index('Date')
     return df
+
+def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
+    """Creates the dictionary of predictive models to use
+
+    Args:
+        gbm (bool, optional): Whether or not to use the GBM models. Defaults to True.
+        lstm (bool, optional): Whether or not to use the LSTM models. Defaults to True.
+        lstm_sde (bool, optional): Whether or not to use the LSTM SDE models. Defaults to True.
+
+    Returns:
+        dict:   Dictionary of model parameters. Primary key is the model type. 
+                Secondary key is the model name, with the value being the model parameters.
+    """    
+    models_dict = {}
+    if gbm: 
+        models_dict["GBM"] = None
+        logging.info("Creating placeholder for GBM")
+    if lstm:
+        models_dict["LSTM"] = {'lstm_1' : {'units': 50, 'activation': 'relu', 'input_shape': (1, 1), 'return_sequences': True},}
+    if lstm_sde:
+        logging.info('Creating placeholder for lstm model using stochastic differential equations (SDE)')
+        # TODO allow test train split to also be a callback to a function, so we can filter specifically on the date
+        models_dict["LSTM_SDE"] = {
+            'lstm_5node_1' : {
+                # 'units': 50, 
+                # 'activation': 'relu', 
+                # 'input_shape': (1, 1), 
+                # 'return_sequences': True,
+                # 'smoothing_window_size' : 2500, May need to smooth the data, since the earlier data would be close to 0 and not add much value to the learning process 
+                'N' : 5, # Number of nodes
+                'T' : 1, # Time horizon
+                'num_epochs' : 50,
+                'learning_rate' : 0.01,
+                'test_split' : 0.2,
+                'train_split' : 0.8,
+            },
+            'lstm_5node_2' : {
+                # 'units': 50, 
+                # 'activation': 'relu', 
+                # 'input_shape': (1, 1), 
+                # 'return_sequences': True,
+                # 'smoothing_window_size' : 2500, May need to smooth the data, since the earlier data would be close to 0 and not add much value to the learning process 
+                'N' : 5, # Number of nodes
+                'T' : 1, # Time horizon
+                'num_epochs' : 1000,
+                'learning_rate' : 0.001,
+                'test_split' : 0.2,
+                'train_split' : 0.8,
+            },
+            'lstm_5node_3' : {
+                # 'units': 50, 
+                # 'activation': 'relu', 
+                # 'input_shape': (1, 1), 
+                # 'return_sequences': True,
+                # 'smoothing_window_size' : 2500, May need to smooth the data, since the earlier data would be close to 0 and not add much value to the learning process 
+                'N' : 5, # Number of hidden nodes in each layer of the LSTM 
+                'T' : 1, # Time horizon
+                'num_epochs' : 1000,
+                'learning_rate' : 0.0001,
+                'test_split' : 0.2,
+                'train_split' : 0.8,
+            },
+        }
+    return models_dict
 
 if __name__ == "__main__":
     logging.getLogger().setLevel(logging.INFO)
@@ -43,7 +118,9 @@ if __name__ == "__main__":
     print("Running main.py")
     # Create an analysis object for each stock
     # Create a list of stock names
-    stock_names = ["AAPL", "AMD", "AMZN", "EA", "GOOG", "INTC", "MSFT", "NFLX", "NVDA"]
+    # stock_names = ["AAPL", "AMD", "AMZN", "EA", "GOOG", "INTC", "MSFT", "NFLX", "NVDA"]
+    stock_names = ["AAPL"]
+
     # Create a list of stock dataframes
     stock_df_dict = {}
     raw_dir = path.join(os.path.dirname(os.path.realpath(__file__)), '..', 'input', '00_raw')
@@ -62,5 +139,8 @@ if __name__ == "__main__":
     analysis.add_analysis_objs(stock_df_dict)
 
     analysis.preprocess_datasets()
-    analysis.run_analysis(run_descriptive=True, run_predictive=False)
+    #analysis.validate_datasets()
+    models_dict = create_models_dict()
+    analysis.set_models_for_analysis_objs(models_dict=models_dict)
+    analysis.run_analysis(run_descriptive=False, run_predictive=True)
     # Print the stock names
