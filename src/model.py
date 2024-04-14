@@ -12,11 +12,12 @@ class Model():
     # The model class should have a plot method that plots the model
     # The model class should have a report method that reports the model's performance
 
-    def __init__(self, model_hyperparameters, save_dir, model_name):
+    def __init__(self, data, model_hyperparameters, save_dir, model_name):
         self.model_hyperparameters = model_hyperparameters
         self.save_dir = save_dir
         self.model_name = model_name
         self.model = None
+        self.data = data
     
     def split_data(self):
         # Split the data into test and train using sklearn.model_selection.train_test_split

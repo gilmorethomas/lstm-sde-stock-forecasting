@@ -8,9 +8,9 @@ class LSTM(Model):
     # https://www.datacamp.com/tutorial/lstm-python-stock-market
     # https://www.tensorflow.org/tutorials/structured_data/time_series
 
-    def __init__(self, model_hyperparameters, save_dir, model_name):
+    def __init__(self, data, model_hyperparameters, save_dir, model_name):
         logging.info("Creating lstm model")
-        super().__init__(model_hyperparameters, save_dir, model_name)
+        super().__init__(data, model_hyperparameters, save_dir, model_name)
         self.model_hyperparameters = model_hyperparameters
         # Unpack the model hyperparameters into class member viarbles 
         # self.model = keras_LSTM(1)

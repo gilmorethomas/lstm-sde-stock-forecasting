@@ -163,21 +163,46 @@ class Analysis():
         # For each model in the models dict, call the requisite model class's predict method
         # For each model in the models dict, call the requisite model class's save method
         for model_type, all_models_for_type in self.models_dict.items():
-            
             if model_type.lower() == 'lstm':
                 logging.info("Creating LSTM models")
                 for model_name, model_hyperparameters in all_models_for_type.items():
                     logging.info(f"Creating LSTM model {model_name}")
-                    model = LSTM(model_hyperparameters, self.output_directory, model_name)
-                    model.split_data()
-                    model.train()
-                    model.test()
-                    model.predict()
-                    model.save()
-                    model.plot()
-                    model.report()
+                    model = LSTM(data=self.dataset_df, 
+                        model_hyperparameters=model_hyperparameters, 
+                        save_dir=self.output_directory, 
+                        model_name=model_name)
+                    self._call_model_funcs(model)
+            elif model_type.lower() == 'gbm':
+                logging.info("Creating GBM models")
+                import pdb; pdb.set_trace()
+                for model_name, model_hyperparameters in all_models_for_type.items():
+                    # Create a GBM model
+                    logging.info(f"Creating GBM model {model_name}")
+                    model = GeometricBrownianMotion(model_hyperparameters=model_hyperparameters, 
+                        save_dir=self.output_directory, 
+                        model_name=model_name)
+                    self._call_model_funcs(model)
+            elif model_type.lower() == 'lstm_sde':
+                logging.info("Creating LSTM SDE models")
+                for model_name, model_hyperparameters in all_models_for_type.items():
+                    # Create a LSTM SDE model
+                    logging.info(f"Creating LSTM SDE model {model_name}")
+                    raise NotImplementedError("LSTM SDE model not implemented yet")
             else:   
                 logging.error(f"Model {model_type} not implemented yet")
+    
+    def _call_model_funcs(self, model):
+        """Helper function to call all model functions
+        Args:
+            model (_type_): _description_
+        """        
+        model.split_data()
+        model.train()
+        model.test()
+        model.predict()
+        model.save()
+        model.plot()
+        model.report()
     def _validate_models(self):
         # Validate the models dictionary. Make sure that the specified models are models 
         # that exist in pytorch, sklearn, or other libraries that we are using
