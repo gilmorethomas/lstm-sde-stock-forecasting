@@ -4,7 +4,7 @@ import logging
 from os import path, getcwd
 import os
 from analysis import AnalysisManager# The main driver for the lstm-sde-stock-forecasting project.
-
+from model_parameters import create_models_dict
 # This study explores the integration of stochastic modeling and 
 # advanced machine learning techniques, focusing specifically on 
 # recurrent neural networks (RNNs) to forecast stock prices. 
@@ -47,41 +47,6 @@ def preprocessing_callback(df):
     #df = df.set_index('Date')
     return df
 
-def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
-    """Creates the dictionary of predictive models to use
-
-    Args:
-        gbm (bool, optional): Whether or not to use the GBM models. Defaults to True.
-        lstm (bool, optional): Whether or not to use the LSTM models. Defaults to True.
-        lstm_sde (bool, optional): Whether or not to use the LSTM SDE models. Defaults to True.
-
-    Returns:
-        dict:   Dictionary of model parameters. Primary key is the model type. 
-                Secondary key is the model name, with the value being the model parameters.
-    """    
-    models_dict = {}
-    if gbm: 
-        models_dict["GBM"] = {
-            # 'gbm_1' : 'model_hyperparameters': {'mu': 0.0001, 'sigma': 0.02},
-            # 'gbm_2' : 'model_hyperparameters': {'mu': 0.0001, 'sigma': 0.1},
-        }
-    if lstm_sde:
-        models_dict["LSTM_SDE"] = None 
-
-    if lstm:
-        logging.info('Creating placeholder for lstm model using stochastic differential equations (SDE)')
-        # TODO allow test train split to also be a callback to a function, so we can filter specifically on the date
-        # See valid model arguments documentation https://www.tensorflow.org/api_docs/python/tf/keras/layers/LSTM
-        models_dict["LSTM"] = {
-            'lstm_5node_1' : {
-                'units' : 1,
-                'library_hyperparameters' : {
-                    'activation' : 'relu',
-                    'recurrent_activation' : 'sigmoid',
-                }
-            },
-        }
-    return models_dict
 
 if __name__ == "__main__":
     logging.getLogger().setLevel(logging.INFO)
@@ -114,7 +79,8 @@ if __name__ == "__main__":
     
     analysis.preprocess_datasets()
     #analysis.validate_datasets()
-    models_dict = create_models_dict(gbm=False, lstm=True, lstm_sde=False)
+    models_dict = create_models_dict(gbm=True, lstm=True, lstm_sde=False)
+    import pdb; pdb.set_trace()
     analysis.set_models_for_analysis_objs(models_dict=models_dict)
     analysis.run_analysis(run_descriptive=False, run_predictive=True)
     # Print the stock names
