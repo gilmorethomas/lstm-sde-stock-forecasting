@@ -64,50 +64,19 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
     if gbm: 
         models_dict["GBM"] = None
         logging.info("Creating placeholder for GBM")
-    if lstm:
-        models_dict["LSTM"] = {'lstm_1' : {'units': 50, 'activation': 'relu', 'input_shape': (1, 1), 'return_sequences': True},}
     if lstm_sde:
+        models_dict["LSTM_SDE"] = {'lstm_1' : {'units': 50, 'activation': 'relu', 'input_shape': (1, 1), 'return_sequences': True},}
+    if lstm:
         logging.info('Creating placeholder for lstm model using stochastic differential equations (SDE)')
         # TODO allow test train split to also be a callback to a function, so we can filter specifically on the date
-        models_dict["LSTM_SDE"] = {
+        # See valid model arguments documentation https://www.tensorflow.org/api_docs/python/tf/keras/layers/LSTM
+        models_dict["LSTM"] = {
             'lstm_5node_1' : {
-                # 'units': 50, 
-                # 'activation': 'relu', 
-                # 'input_shape': (1, 1), 
-                # 'return_sequences': True,
-                # 'smoothing_window_size' : 2500, May need to smooth the data, since the earlier data would be close to 0 and not add much value to the learning process 
-                'N' : 5, # Number of nodes
-                'T' : 1, # Time horizon
-                'num_epochs' : 50,
-                'learning_rate' : 0.01,
-                'test_split' : 0.2,
-                'train_split' : 0.8,
-            },
-            'lstm_5node_2' : {
-                # 'units': 50, 
-                # 'activation': 'relu', 
-                # 'input_shape': (1, 1), 
-                # 'return_sequences': True,
-                # 'smoothing_window_size' : 2500, May need to smooth the data, since the earlier data would be close to 0 and not add much value to the learning process 
-                'N' : 5, # Number of nodes
-                'T' : 1, # Time horizon
-                'num_epochs' : 1000,
-                'learning_rate' : 0.001,
-                'test_split' : 0.2,
-                'train_split' : 0.8,
-            },
-            'lstm_5node_3' : {
-                # 'units': 50, 
-                # 'activation': 'relu', 
-                # 'input_shape': (1, 1), 
-                # 'return_sequences': True,
-                # 'smoothing_window_size' : 2500, May need to smooth the data, since the earlier data would be close to 0 and not add much value to the learning process 
-                'N' : 5, # Number of hidden nodes in each layer of the LSTM 
-                'T' : 1, # Time horizon
-                'num_epochs' : 1000,
-                'learning_rate' : 0.0001,
-                'test_split' : 0.2,
-                'train_split' : 0.8,
+                'units' : 1,
+                'library_hyperparameters' : {
+                    'activation' : 'relu',
+                    'recurrent_activation' : 'sigmoid',
+                }
             },
         }
     return models_dict
@@ -140,7 +109,7 @@ if __name__ == "__main__":
 
     analysis.preprocess_datasets()
     #analysis.validate_datasets()
-    models_dict = create_models_dict()
+    models_dict = create_models_dict(gbm=False, lstm=True, lstm_sde=False)
     analysis.set_models_for_analysis_objs(models_dict=models_dict)
     analysis.run_analysis(run_descriptive=False, run_predictive=True)
     # Print the stock names

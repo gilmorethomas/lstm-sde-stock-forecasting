@@ -5,7 +5,7 @@ from plotting import Plotting
 import sklearn
 import torch
 # import tensorflow as tf
-from tensorflow.keras.layers import LSTM
+from tensorflow.keras.layers import LSTM as keras_LSTM
 from sklearn.preprocessing import MinMaxScaler
 
 import pandas as pd
@@ -259,14 +259,20 @@ class Model():
 class LSTM(Model):
     # Define an LSTM class that inherits from the model class, implemented using pytorch as similar to this link: 
     # https://www.datacamp.com/tutorial/lstm-python-stock-market
+    # https://www.tensorflow.org/tutorials/structured_data/time_series
 
     def __init__(self, model_hyperparameters, save_dir, model_name):
         logging.info("Creating lstm model")
         super().__init__(model_hyperparameters, save_dir, model_name)
+        self.model_hyperparameters = model_hyperparameters
+        # Unpack the model hyperparameters into class member viarbles 
+        self._set_default_values()
+        # self.model = keras_LSTM(1)
+        self.model = keras_LSTM(model_hyperparameters['units'], **model_hyperparameters['library_hyperparameters'])
 
+    def split_data(self): 
+        # Split the data into test and train 
 
-
-        # self.model = LSTM(**model_hyperparameters)
 
 # tf.keras.layers.LSTM(
 #     units,
