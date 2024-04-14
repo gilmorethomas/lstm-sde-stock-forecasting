@@ -12,7 +12,8 @@ class AnalysisManager():
     # Output directory is where the output data is stored
 
 
-    def __init__(self, raw_dir, output_dir): 
+    def __init__(self, raw_dir, output_dir, **kwargs):
+        import pdb; pdb.set_trace()
         self.analysis_objects_dict = {}
         self.raw_dir = raw_dir
         self.output_dir = output_dir
@@ -109,12 +110,11 @@ class Analysis():
     def run_plots(self, plot_types):
         # run plots for each analysis object
             # plot the dataset using the analysis class plotting function 
-            analysis.plot_dataset(plot_types)
+        self.plot_dataset(plot_types)
         # also create an all-in-one plot with all the datasets, adding an extra variable that is 
         # self._run_all_in_one_plot()
         
         # Run descriptive time series analysis 
-        raise NotImplementedError("This method is not implemented yet")
         
     def run_predictive(self):
         # run predictive analytics
@@ -132,5 +132,5 @@ class Analysis():
     def plot_dataset(self, plot_types):
         # Use the plotting class to plot the entirety of the dataset (all columns as options)
         for plot_type in plot_types:
-            plotter = Plotting(self.dataset_df, plot_type)
+            plotter = Plotting(self.dataset_df, plot_type, self.output_directory)
             plotter.plot()
