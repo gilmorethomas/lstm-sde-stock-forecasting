@@ -18,7 +18,7 @@ class AnalysisManager():
     # Output directory is where the output data is stored
 
 
-    def __init__(self, raw_dir, output_dir): 
+    def __init__(self, raw_dir, output_dir, **kwargs): 
         """
         Creates the analysis maanger 
         Args:
@@ -145,8 +145,12 @@ class Analysis():
         stats_df.to_csv(output_file)
 
     def run_plots(self, plot_types):
-        ...        
-
+        # run plots for each analysis object
+        self.plot_dataset(plot_types)
+        # also create an all-in-one plot with all the datasets, adding an extra variable that is 
+        # self._run_all_in_one_plot()
+        # Run descriptive time series analysis 
+        
     def run_predictive(self):
         # run predictive analytics
         # Validate the models dictionary 
@@ -304,4 +308,3 @@ class LSTM(Model):
     def train(self):
         # Train the model using the test train split
         logging.info("Need to implement")
-    

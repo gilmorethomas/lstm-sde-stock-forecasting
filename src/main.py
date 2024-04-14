@@ -103,9 +103,14 @@ if __name__ == "__main__":
             continue
     # Create a list of analysis objects
     analysis_objects = []
-    analysis = AnalysisManager(raw_dir, output_dir)
+    kwargs = {'plotting' : 
+                  {'x_vars' : 'Date', 
+                   'y_vars' : None}}
+    analysis = AnalysisManager(raw_dir, output_dir, x_vars_to_plot = ['Date'], y_vars_to_plot=None, plotting = {'x_vars': 'Date', 'y_vars': None}, foo='bar')
     analysis.set_preprocessing_callback(preprocessing_callback)
     analysis.add_analysis_objs(stock_df_dict)
+
+    
 
     analysis.preprocess_datasets()
     #analysis.validate_datasets()
