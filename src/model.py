@@ -1,6 +1,7 @@
 from os import path 
 import pickle
 import logging
+import pandas as pd 
 
 class Model(): 
     # Define a model class that takes a test train split and model hyperparameters
@@ -12,16 +13,36 @@ class Model():
     # The model class should have a plot method that plots the model
     # The model class should have a report method that reports the model's performance
 
-    def __init__(self, data, model_hyperparameters, save_dir, model_name):
+    def __init__(self, 
+        data, 
+        model_hyperparameters, 
+        save_dir, 
+        model_name,
+        test_split_filter=None, 
+        train_split_filter=None, 
+        evaluation_filters:list=[], 
+    ):
+        self.data = data
         self.model_hyperparameters = model_hyperparameters
+        self.test_split_filter = test_split_filter
+        self.train_split_filter = train_split_filter
+        self.evaluation_filters = evaluation_filters
         self.save_dir = save_dir
         self.model_name = model_name
         self.model = None
-        self.data = data
     
     def split_data(self):
         # Split the data into test and train using sklearn.model_selection.train_test_split
-        raise NotImplementedError("This should be implemented by the child class")
+        # Perform test, train, evaluation split using the filters in model hyperparameters. Us
+        # Set self.train_data equal to the data with the train split filter applied
+        self.train_data = self.data[self.train_split_filter]
+        # Set self.test_data equal to the data with the test split filter applied
+        self.test_data = self.data[self.test_split_filter]
+        # Set self.evaluation_data equal to the data with the evaluation filters applied
+        self.evaluation_data = None 
+        logging.info("Still need to get evaluation data working")
+        # self.data[self.evaluation_filters]
+
     def train(self):
         # train the model
         raise NotImplementedError("This should be implemented by the child class")

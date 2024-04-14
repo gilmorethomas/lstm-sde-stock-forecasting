@@ -5,8 +5,14 @@ import numpy as np
 import numpy as np
 class GeometricBrownianMotion(Model):
     # Define a Geometric Brownian Motion class that inherits from the model class
-    def __init__(self, model_hyperparameters, save_dir, model_name):
-        super().__init__(model_hyperparameters, save_dir, model_name)
+    def __init__(self, data, model_hyperparameters, save_dir, model_name, test_split_filter=None, train_split_filter=None, evaluation_filters:list=[]):
+        super().__init__(data=data, 
+            model_hyperparameters=model_hyperparameters, 
+            save_dir=save_dir, 
+            model_name=model_name,
+            test_split_filter=test_split_filter,
+            train_split_filter=train_split_filter,
+            evaluation_filters=evaluation_filters)
         self.model_hyperparameters = model_hyperparameters
 
     def generate_stock_prices(self, stock_data):
@@ -35,9 +41,20 @@ class GeometricBrownianMotion(Model):
             stock_prices[i] = stock_prices[i-1] + drift + diffusion  # Update the stock price
 
         return stock_prices
-        
-def simulate_1d_gbm(nsteps=1000, t=1, mu=0.0001, sigma=0.02, start=1):
-    steps = [ (mu - (sigma**2)/2) + np.random.randn()*sigma for i in range(nsteps) ]
-    y = start*np.exp(np.cumsum(steps))
-    x = [ t*i for i in range(nsteps) ]
-    return x, y
+
+    def train(self):
+        ...
+    def test(self):
+        ...
+    def predict(self):
+        ...
+    def plot(self):
+        ...
+    def report(self):
+        ...
+    def simulate_1d_gbm(self, nsteps=1000, t=1, mu=0.0001, sigma=0.02, start=1):
+        steps = [ (mu - (sigma**2)/2) + np.random.randn()*sigma for i in range(nsteps) ]
+        y = start*np.exp(np.cumsum(steps))
+        x = [ t*i for i in range(nsteps) ]
+        return x, y
+    

@@ -11,13 +11,14 @@ def create_test_train_split_params(start_date_train='2009-01-01',
         _type_: _description_
     """    
     params = {}
-    params['train_split_filter'] = lambda x: x['Date'] >= start_date_train  & x['Date'] < start_date_test
-    params['test_split_filter']  = lambda x: x['Date'] >= start_date_test   & x['Date'] <= '2019-01-01'
-    eval_filters = {'5_day', lambda x: x['Date']       >= '2019-01-02' & x['Date'] <= '2019-01-06',
-                    '1_month', lambda x: x['Date']     >= '2019-01-02' & x['Date'] <= '2019-02-02',
-                    '6_month', lambda x: x['Date']     >= '2019-01-02' & x['Date'] <= '2019-07-02',
-                    '1_year', lambda x: x['Date']      >= '2019-01-02' & x['Date'] <= '2020-01-02',
-                    '5_year', lambda x: x['Date']      >= '2019-01-02' & x['Date'] <= '2024-01-02'}, 
+    params['train_split_filter'] = lambda x: (x['Date'] >= start_date_train) &  (x['Date'] < start_date_test)
+    params['test_split_filter']  = lambda x: (x['Date'] >= start_date_test) & (x['Date'] <= '2019-01-01')
+    eval_filters = {'5_day', lambda x: x['Date']       >= '2019-01-02',# & x['Date'] <= '2019-01-06',
+                    '1_month', lambda x: x['Date']     >= '2019-01-02',# & x['Date'] <= '2019-02-02',
+                    '6_month', lambda x: x['Date']     >= '2019-01-02',# & x['Date'] <= '2019-07-02',
+                    '1_year', lambda x: x['Date']      >= '2019-01-02',# & x['Date'] <= '2020-01-02',
+                    '5_year', lambda x: x['Date']      >= '2019-01-02',# & x['Date'] <= '2024-01-02'
+                }, 
     params['evaluation_filters'] = eval_filters 
     return params
 
@@ -60,6 +61,7 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
             },
         }
     # For each model in the models dict, add in the test and train split parameters from create_test_train_split_params
+    # Note that this applies the same test train split parameters to every model
     test_train_split_params = create_test_train_split_params()
     for model_type, model_dict in models_dict.items():
         for model_name, model in model_dict.items(): 

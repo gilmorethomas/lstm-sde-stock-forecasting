@@ -165,22 +165,29 @@ class Analysis():
         for model_type, all_models_for_type in self.models_dict.items():
             if model_type.lower() == 'lstm':
                 logging.info("Creating LSTM models")
-                for model_name, model_hyperparameters in all_models_for_type.items():
+                for model_name, model_dict in all_models_for_type.items():
                     logging.info(f"Creating LSTM model {model_name}")
                     model = LSTM(data=self.dataset_df, 
-                        model_hyperparameters=model_hyperparameters, 
+                        model_hyperparameters=model_dict['library_hyperparameters'],
+                        units = model_dict['units'],
                         save_dir=self.output_directory, 
-                        model_name=model_name)
+                        model_name=model_name,
+                        test_split_filter=model_dict['test_split_filter'],
+                        train_split_filter=model_dict['train_split_filter'],
+                        evaluation_filters=model_dict['evaluation_filters'], )
                     self._call_model_funcs(model)
             elif model_type.lower() == 'gbm':
                 logging.info("Creating GBM models")
-                import pdb; pdb.set_trace()
-                for model_name, model_hyperparameters in all_models_for_type.items():
+                for model_name, model_dict in all_models_for_type.items():
                     # Create a GBM model
                     logging.info(f"Creating GBM model {model_name}")
-                    model = GeometricBrownianMotion(model_hyperparameters=model_hyperparameters, 
+                    model = GeometricBrownianMotion(data=self.dataset_df,
+                        model_hyperparameters=model_dict['model_hyperparameters'], 
                         save_dir=self.output_directory, 
-                        model_name=model_name)
+                        model_name=model_name,
+                        test_split_filter=model_dict['test_split_filter'],
+                        train_split_filter=model_dict['train_split_filter'],
+                        evaluation_filters=model_dict['evaluation_filters'], )
                     self._call_model_funcs(model)
             elif model_type.lower() == 'lstm_sde':
                 logging.info("Creating LSTM SDE models")

@@ -8,23 +8,27 @@ class LSTM(Model):
     # https://www.datacamp.com/tutorial/lstm-python-stock-market
     # https://www.tensorflow.org/tutorials/structured_data/time_series
 
-    def __init__(self, data, model_hyperparameters, save_dir, model_name):
+    def __init__(self, data, units, model_hyperparameters, save_dir, model_name, test_split_filter=None, train_split_filter=None, evaluation_filters:list=[]):
         logging.info("Creating lstm model")
-        super().__init__(data, model_hyperparameters, save_dir, model_name)
-        self.model_hyperparameters = model_hyperparameters
+        super().__init__(data=data, 
+            model_hyperparameters=model_hyperparameters, 
+            save_dir=save_dir, 
+            model_name=model_name,
+            test_split_filter=test_split_filter,
+            train_split_filter=train_split_filter,
+            evaluation_filters=evaluation_filters)
         # Unpack the model hyperparameters into class member viarbles 
         # self.model = keras_LSTM(1)
-        self.model = keras_LSTM(model_hyperparameters['units'], **model_hyperparameters['library_hyperparameters'])
+        self.units = units
+        self.model = keras_LSTM(units, **model_hyperparameters)
 
-    def split_data(self): 
-        logging.info("Split implemented yet")
-        # Split the data into test and train 
-    
     def test(self):
+        import pdb; pdb.set_trace()
         logging.info("Test not implemented yet")
         # Test the model
     
     def train(self):
+        import pdb; pdb.set_trace()
         logging.info("Train not implemented yet")
         # Train the model using the test train split    
 
