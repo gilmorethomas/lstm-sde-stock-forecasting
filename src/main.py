@@ -35,7 +35,51 @@ def preprocessing_callback(df):
     # Preprocess the dataset
     # Remove any missing values
     df = df.dropna()
+    for col in df.columns:
+        if df[col].dtype == 'object':
+            logging.info(f'Skipping normalization for {col=}, as dtype is object') 
+            continue
+        else:
+    # Normalize the dataset, giving a max of 1 and min of 0
+            df[col] = (df[col] - df[col].min()) / (df[col].max() - df[col].min())
+    # Impute data using data from the previous day
+    df = df.fillna(method='ffill')
+    # Set the index to the date
+    #df = df.set_index('Date')
     return df
+
+def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
+    """Creates the dictionary of predictive models to use
+
+    Args:
+        gbm (bool, optional): Whether or not to use the GBM models. Defaults to True.
+        lstm (bool, optional): Whether or not to use the LSTM models. Defaults to True.
+        lstm_sde (bool, optional): Whether or not to use the LSTM SDE models. Defaults to True.
+
+    Returns:
+        dict:   Dictionary of model parameters. Primary key is the model type. 
+                Secondary key is the model name, with the value being the model parameters.
+    """    
+    models_dict = {}
+    if gbm: 
+        models_dict["GBM"] = None
+        logging.info("Creating placeholder for GBM")
+    if lstm_sde:
+        models_dict["LSTM_SDE"] = {'lstm_1' : {'units': 50, 'activation': 'relu', 'input_shape': (1, 1), 'return_sequences': True},}
+    if lstm:
+        logging.info('Creating placeholder for lstm model using stochastic differential equations (SDE)')
+        # TODO allow test train split to also be a callback to a function, so we can filter specifically on the date
+        # See valid model arguments documentation https://www.tensorflow.org/api_docs/python/tf/keras/layers/LSTM
+        models_dict["LSTM"] = {
+            'lstm_5node_1' : {
+                'units' : 1,
+                'library_hyperparameters' : {
+                    'activation' : 'relu',
+                    'recurrent_activation' : 'sigmoid',
+                }
+            },
+        }
+    return models_dict
 
 if __name__ == "__main__":
     logging.getLogger().setLevel(logging.INFO)
@@ -43,7 +87,9 @@ if __name__ == "__main__":
     print("Running main.py")
     # Create an analysis object for each stock
     # Create a list of stock names
-    stock_names = ["AAPL", "AMD", "AMZN", "EA", "GOOG", "INTC", "MSFT", "NFLX", "NVDA"]
+    # stock_names = ["AAPL", "AMD", "AMZN", "EA", "GOOG", "INTC", "MSFT", "NFLX", "NVDA"]
+    stock_names = ["AAPL"]
+
     # Create a list of stock dataframes
     stock_df_dict = {}
     raw_dir = path.join(os.path.dirname(os.path.realpath(__file__)), '..', 'input', '00_raw')
@@ -67,5 +113,8 @@ if __name__ == "__main__":
     
 
     analysis.preprocess_datasets()
-    analysis.run_analysis(run_descriptive=True, run_predictive=False)
+    #analysis.validate_datasets()
+    models_dict = create_models_dict(gbm=False, lstm=True, lstm_sde=False)
+    analysis.set_models_for_analysis_objs(models_dict=models_dict)
+    analysis.run_analysis(run_descriptive=False, run_predictive=True)
     # Print the stock names
