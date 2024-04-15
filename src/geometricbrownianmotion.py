@@ -5,22 +5,31 @@ import numpy as np
 import numpy as np
 class GeometricBrownianMotion(Model):
     # Define a Geometric Brownian Motion class that inherits from the model class
-    def __init__(self, data, model_hyperparameters, save_dir, model_name, test_split_filter=None, train_split_filter=None, evaluation_filters:list=[]):
+    def __init__(self, 
+        data, 
+        model_hyperparameters, 
+        save_dir, 
+        model_name, 
+        x_vars, 
+        y_vars, 
+        test_split_filter=None, 
+        train_split_filter=None, 
+        evaluation_filters:list=[]
+    ):
         super().__init__(data=data, 
             model_hyperparameters=model_hyperparameters, 
             save_dir=save_dir, 
             model_name=model_name,
+            x_vars=x_vars,
+            y_vars=y_vars,
             test_split_filter=test_split_filter,
             train_split_filter=train_split_filter,
-            evaluation_filters=evaluation_filters)
+            evaluation_filters=evaluation_filters, 
+            )
         self.model_hyperparameters = model_hyperparameters
 
     def generate_stock_prices(self, stock_data):
         # Split the stock data into train and test sets
-        train_size = int(len(stock_data) * 0.8)
-        train_data = stock_data[:train_size]
-        test_data = stock_data[train_size:]
-
         # Calculate the daily returns of the train data
         train_returns = np.diff(train_data) / train_data[:-1]
 
@@ -43,7 +52,25 @@ class GeometricBrownianMotion(Model):
         return stock_prices
 
     def train(self):
-        ...
+        """Either calculate the mu and sigma or use the provided values to train the model
+        """        
+        if self.model_hyperparameters['calculate_mu'] or self.model_hyperparameters['calculate_sigma']:
+            logging.info("Calculating mu and sigma")
+            self.train_params['mu'] = {}
+            self.train_params['sigma'] = {}
+            for col in self.train_data[self.y_vars]:
+                try:
+                    self.train_params['mu'][col] = np.mean(self.train_data[col])
+                    self.train_params['sigma'][col] = np.std(self.train_data[col])
+                except TypeError as e:
+                    logging.error(f"Could not calculate mu and sigma for {col}")
+        else:
+            logging.info("Using provided mu and sigma")
+            self.train_params['mu'] = {}
+            self.train_params['sigma'] = {}
+            for col in self.train_data[self.y_vars]:
+                self.train_params['mu'][col] = self.model_hyperparameters['mu']
+                self.train_params['sigma'][col] = self.model_hyperparameters['sigma']
     def test(self):
         ...
     def predict(self):

@@ -8,12 +8,25 @@ class LSTM(Model):
     # https://www.datacamp.com/tutorial/lstm-python-stock-market
     # https://www.tensorflow.org/tutorials/structured_data/time_series
 
-    def __init__(self, data, units, model_hyperparameters, save_dir, model_name, test_split_filter=None, train_split_filter=None, evaluation_filters:list=[]):
+    def __init__(self, 
+        data, 
+        units, 
+        model_hyperparameters, 
+        save_dir, 
+        model_name, 
+        x_vars, 
+        y_vars, 
+        test_split_filter=None, 
+        train_split_filter=None, 
+        evaluation_filters:list=[]
+    ):
         logging.info("Creating lstm model")
         super().__init__(data=data, 
             model_hyperparameters=model_hyperparameters, 
             save_dir=save_dir, 
             model_name=model_name,
+            x_vars=x_vars,
+            y_vars=y_vars,
             test_split_filter=test_split_filter,
             train_split_filter=train_split_filter,
             evaluation_filters=evaluation_filters)
@@ -23,7 +36,6 @@ class LSTM(Model):
         self.model = keras_LSTM(units, **model_hyperparameters)
 
     def test(self):
-        import pdb; pdb.set_trace()
         logging.info("Test not implemented yet")
         # Test the model
     

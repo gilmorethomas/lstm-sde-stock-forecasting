@@ -18,9 +18,11 @@ class Model():
         model_hyperparameters, 
         save_dir, 
         model_name,
+        x_vars:list,
+        y_vars:list,
         test_split_filter=None, 
         train_split_filter=None, 
-        evaluation_filters:list=[], 
+        evaluation_filters:dict={}, 
     ):
         self.data = data
         self.model_hyperparameters = model_hyperparameters
@@ -30,6 +32,9 @@ class Model():
         self.save_dir = save_dir
         self.model_name = model_name
         self.model = None
+        self.train_params = {}
+        self.x_vars = x_vars
+        self.y_vars = y_vars
     
     def split_data(self):
         # Split the data into test and train using sklearn.model_selection.train_test_split
@@ -39,8 +44,7 @@ class Model():
         # Set self.test_data equal to the data with the test split filter applied
         self.test_data = self.data[self.test_split_filter]
         # Set self.evaluation_data equal to the data with the evaluation filters applied
-        self.evaluation_data = None 
-        logging.info("Still need to get evaluation data working")
+        self.evaluation_data = {k: self.data[v] for k, v in self.evaluation_filters.items()}
         # self.data[self.evaluation_filters]
 
     def train(self):

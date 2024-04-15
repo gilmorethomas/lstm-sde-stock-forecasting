@@ -1,6 +1,7 @@
 
 def create_test_train_split_params(start_date_train='2009-01-01', 
-    start_date_test='2017-01-02'):
+    start_date_test='2017-01-02',
+    evaluation_start_date='2019-01-02',):
     """Helper method to create the test split parameters for all models
 
     Args:
@@ -11,15 +12,17 @@ def create_test_train_split_params(start_date_train='2009-01-01',
         _type_: _description_
     """    
     params = {}
-    params['train_split_filter'] = lambda x: (x['Date'] >= start_date_train) &  (x['Date'] < start_date_test)
-    params['test_split_filter']  = lambda x: (x['Date'] >= start_date_test) & (x['Date'] <= '2019-01-01')
-    eval_filters = {'5_day', lambda x: x['Date']       >= '2019-01-02',# & x['Date'] <= '2019-01-06',
-                    '1_month', lambda x: x['Date']     >= '2019-01-02',# & x['Date'] <= '2019-02-02',
-                    '6_month', lambda x: x['Date']     >= '2019-01-02',# & x['Date'] <= '2019-07-02',
-                    '1_year', lambda x: x['Date']      >= '2019-01-02',# & x['Date'] <= '2020-01-02',
-                    '5_year', lambda x: x['Date']      >= '2019-01-02',# & x['Date'] <= '2024-01-02'
-                }, 
-    params['evaluation_filters'] = eval_filters 
+    params['train_split_filter'] =  lambda x: (x['Date'] >= start_date_train) &  (x['Date'] < start_date_test)
+    params['test_split_filter']  =  lambda x: (x['Date'] >= start_date_test) & (x['Date'] <= '2019-01-01')
+    # Create a dictionary of evaluation filters. The keys are the evaluation filter names, and the values are the lambda functions
+    eval_filters = {}
+    eval_filters['5_day'] = lambda x: (x['Date'] >= evaluation_start_date) & (x['Date'] <= '2019-01-06')
+    eval_filters['1_month'] = lambda x: (x['Date'] >= evaluation_start_date) & (x['Date'] <= '2019-02-02')
+    eval_filters['6_month'] = lambda x: (x['Date'] >= evaluation_start_date) & (x['Date'] <= '2019-07-02')
+    eval_filters['1_year'] = lambda x: (x['Date'] >= evaluation_start_date) & (x['Date'] <= '2020-01-02')
+    eval_filters['5_year'] = lambda x: (x['Date'] >= evaluation_start_date) & (x['Date'] <= '2024-01-02')
+
+    params['evaluation_filters'] = eval_filters
     return params
 
 def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
@@ -38,12 +41,19 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
     if gbm: 
         models_dict["GBM"] = {
             'gbm_calculated' : {
-                
-                # Evaluation filters, corresponding to a dictionary of forecast dates starting on Jan 2 and ending in 
-                # (1) 5 days, (2) 1 month, (3) 6 months, (4) 1 year, and (5) 5 years
-                'model_hyperparameters': {'calculate_mu' : True, 'calculate_sigma': True}
-            }   
-            # 'gbm_2' : 'model_hyperparameters': {'mu': 0.0001, 'sigma': 0.1},
+                'model_hyperparameters': {
+                    'calculate_mu' : True, 
+                    'calculate_sigma': True
+                }
+            }  ,
+            'gbm_provided' : {
+                'model_hyperparameters': {
+                    'calculate_mu' : False, 
+                    'calculate_sigma': False, 
+                    'mu': 0.0001, 
+                    'sigma': 0.1
+                },
+            }
         }
     if lstm_sde:
         models_dict["LSTM_SDE"] = None 

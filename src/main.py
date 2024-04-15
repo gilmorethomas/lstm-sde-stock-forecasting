@@ -75,11 +75,11 @@ if __name__ == "__main__":
     analysis = AnalysisManager(raw_dir, output_dir, x_vars_to_plot = ['Date'], y_vars_to_plot=None, plotting = {'x_vars': 'Date', 'y_vars': None}, foo='bar')
     analysis.set_preprocessing_callback(preprocessing_callback)
     # Add the analysis objects to the analysis manager 
-    analysis.add_analysis_objs(stock_df_dict)
+    analysis.add_analysis_objs(analysis_dict=stock_df_dict, x_vars=['Date'], y_vars=['Close'])
     
     analysis.preprocess_datasets()
     #analysis.validate_datasets()
-    models_dict = create_models_dict(gbm=True, lstm=True, lstm_sde=False)
+    models_dict = create_models_dict(gbm=True, lstm=False, lstm_sde=False)
     analysis.set_models_for_analysis_objs(models_dict=models_dict)
     analysis.run_analysis(run_descriptive=False, run_predictive=True)
     # Print the stock names

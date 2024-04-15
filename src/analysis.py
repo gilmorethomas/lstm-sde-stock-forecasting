@@ -41,12 +41,18 @@ class AnalysisManager():
         # set the preprocessing callback for the analysis objects
 
     
-    def add_analysis_objs(self, analysis_dict): 
+    def add_analysis_objs(self, analysis_dict, x_vars, y_vars): 
         # add a dictionary of analysis objects, with key being the name of the analysis object
         # and the value being the dataset
         for dataset_name, dataset_df in analysis_dict.items(): 
             logging.info(f"Creating analysis object for {dataset_name}")
-            analysis = Analysis(dataset_name, dataset_df, path.join(self.output_dir, dataset_name), preprocessing_callback=self.preprocessing_callback)
+            analysis = Analysis(dataset_name, 
+                dataset_df, 
+                x_vars, 
+                y_vars, 
+                path.join(self.output_dir, dataset_name), 
+                preprocessing_callback=self.preprocessing_callback
+            )
             self.analysis_objects_dict[dataset_name] = analysis
     
     def preprocess_datasets(self):
@@ -92,12 +98,14 @@ class AnalysisManager():
         raise NotImplementedError("This method is not implemented yet")
             
 class Analysis(): 
-    def __init__(self, dataset_name, dataset_df, output_directory, preprocessing_callback=None):
+    def __init__(self, dataset_name, dataset_df, x_vars, y_vars, output_directory, preprocessing_callback=None):
          
         self.dataset_name = dataset_name
         self._raw_dataset_df = dataset_df
         self.preprocessing_callback = preprocessing_callback
         self.output_directory = output_directory
+        self.x_vars = x_vars
+        self.y_vars = y_vars
         if not(path.exists(output_directory)):
             logging.info(f"Creating output directory {output_directory}")
             makedirs(output_directory)
@@ -172,6 +180,8 @@ class Analysis():
                         units = model_dict['units'],
                         save_dir=self.output_directory, 
                         model_name=model_name,
+                        x_vars=self.x_vars,
+                        y_vars=self.y_vars,
                         test_split_filter=model_dict['test_split_filter'],
                         train_split_filter=model_dict['train_split_filter'],
                         evaluation_filters=model_dict['evaluation_filters'], )
@@ -185,6 +195,8 @@ class Analysis():
                         model_hyperparameters=model_dict['model_hyperparameters'], 
                         save_dir=self.output_directory, 
                         model_name=model_name,
+                        x_vars=self.x_vars,
+                        y_vars=self.y_vars,
                         test_split_filter=model_dict['test_split_filter'],
                         train_split_filter=model_dict['train_split_filter'],
                         evaluation_filters=model_dict['evaluation_filters'], )
