@@ -43,7 +43,8 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
             'gbm_calculated' : {
                 'model_hyperparameters': {
                     'calculate_mu' : True, 
-                    'calculate_sigma': True
+                    'calculate_sigma': True,
+                    'num_sims' : 5
                 }
             }  ,
             'gbm_provided' : {

@@ -41,15 +41,30 @@ def preprocessing_callback(df):
         else:
     # Normalize the dataset, giving a max of 1 and min of 0
             df[col] = (df[col] - df[col].min()) / (df[col].max() - df[col].min())
-    # Impute data using data from the previous day
-    df = df.fillna(method='ffill')
+    # Where there is not an entry for a given day, use the data from the previous day
     # convert date to datetime
     df['Date_string'] = df['Date']
     df['Date'] = pd.to_datetime(df['Date'])
+    # Reindex the dataframe to include all dates
+    idx = pd.date_range(df['Date'].min(), df['Date'].max())
+    idx.name = 'Date'
+    # Set missing dates to NaN for detection, to later impute
+    df = df.set_index('Date').reindex(idx, fill_value=np.nan)
+    # s.index = pd.DatetimeIndex(s.index)
+    logging.info("NEED TO PULL INFORMATION ABOUT HOW MUCH DATA IS MISSING, NEED TO ADD A COLUMN THAT IT WAS IMPUTED ")
+    # Add indicators for columns that are imputed
+    for col in df.columns: 
+        if df[col].dtype in ['float64', 'int64']:
+            df[f'{col}_imputed_indicator'] = df[col].isnull().astype(int)
+
+    # Impute data using data from the previous day
+    df = df.fillna(method='ffill')
+    
+    # Add the date column back in by resetting index
+    df = df.reset_index(drop=False)
+
     # Calculate a days since start column, returning it as an integer
     df['Days_since_start'] = (df['Date'] - df['Date'].min()).dt.days
-    # Set the index to the date
-    #df = df.set_index('Date')
     return df
 
 
