@@ -1,7 +1,6 @@
 import logging 
 
 from model import Model
-from tensorflow.keras.layers import LSTM as keras_LSTM
 
 class LSTM(Model):
     # Define an LSTM class that inherits from the model class, implemented using pytorch as similar to this link: 
@@ -20,6 +19,9 @@ class LSTM(Model):
         train_split_filter=None, 
         evaluation_filters:list=[]
     ):
+        logging.info("Importing LSTM packages")
+        from tensorflow.keras.layers import LSTM as keras_LSTM
+
         logging.info("Creating lstm model")
         super().__init__(data=data, 
             model_hyperparameters=model_hyperparameters, 
