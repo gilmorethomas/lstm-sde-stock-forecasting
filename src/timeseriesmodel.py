@@ -1,6 +1,6 @@
 from model import Model
 import logging 
-
+import numpy as np 
 class TimeSeriesModel(Model):
     """Defines a Time Series Model that inherits from model. This class is currently 
     only used to validate that expected date columns exist in x variables and data columns
@@ -15,6 +15,7 @@ class TimeSeriesModel(Model):
         model_name,
         x_vars:list,
         y_vars:list,
+        seed:np.random.RandomState,
         test_split_filter=None, 
         train_split_filter=None, 
         evaluation_filters:dict={}, 
@@ -25,6 +26,7 @@ class TimeSeriesModel(Model):
             model_name=model_name,
             x_vars=x_vars,
             y_vars=y_vars,
+            seed=seed,
             test_split_filter=test_split_filter,
             train_split_filter=train_split_filter,
             evaluation_filters=evaluation_filters, 

@@ -8,7 +8,7 @@ import torch
 from lstm import LSTM 
 from geometricbrownianmotion import GeometricBrownianMotion
 from sklearn.preprocessing import MinMaxScaler
-
+from numpy.random import RandomState
 import pandas as pd
 
 class AnalysisManager(): 
@@ -19,7 +19,7 @@ class AnalysisManager():
     # Output directory is where the output data is stored
 
 
-    def __init__(self, raw_dir, output_dir, **kwargs): 
+    def __init__(self, raw_dir, output_dir, master_seed = 0, **kwargs): 
         """
         Creates the analysis maanger 
         Args:
@@ -29,6 +29,7 @@ class AnalysisManager():
         self.analysis_objects_dict = {}
         self.raw_dir = raw_dir
         self.output_dir = output_dir
+        self._random_state_mgr = RandomState(master_seed)
 
     def set_preprocessing_callback(self, preprocessing_callback):
         """ 
@@ -51,7 +52,8 @@ class AnalysisManager():
                 x_vars, 
                 y_vars, 
                 path.join(self.output_dir, dataset_name), 
-                preprocessing_callback=self.preprocessing_callback
+                preprocessing_callback=self.preprocessing_callback,
+                seed=self._random_state_mgr
             )
             self.analysis_objects_dict[dataset_name] = analysis
     
@@ -98,7 +100,7 @@ class AnalysisManager():
         raise NotImplementedError("This method is not implemented yet")
             
 class Analysis(): 
-    def __init__(self, dataset_name, dataset_df, x_vars, y_vars, output_directory, preprocessing_callback=None):
+    def __init__(self, dataset_name, dataset_df, x_vars, y_vars, output_directory, seed, preprocessing_callback=None):
          
         self.dataset_name = dataset_name
         self._raw_dataset_df = dataset_df
@@ -106,6 +108,7 @@ class Analysis():
         self.output_directory = output_directory
         self.x_vars = x_vars
         self.y_vars = y_vars
+        self._rand_state_mgr = seed
         if not(path.exists(output_directory)):
             logging.info(f"Creating output directory {output_directory}")
             makedirs(output_directory)
@@ -181,10 +184,11 @@ class Analysis():
                     model = LSTM(data=self.dataset_df, 
                         model_hyperparameters=model_dict['library_hyperparameters'],
                         units = model_dict['units'],
-                        save_dir=self.output_directory, 
+                        save_dir=path.join(self.output_directory, model_name), 
                         model_name=model_name,
                         x_vars=self.x_vars,
                         y_vars=self.y_vars,
+                        seed=self._rand_state_mgr,
                         test_split_filter=model_dict['test_split_filter'],
                         train_split_filter=model_dict['train_split_filter'],
                         evaluation_filters=model_dict['evaluation_filters'], )
@@ -196,10 +200,11 @@ class Analysis():
                     logging.info(f"Creating GBM model {model_name}")
                     model = GeometricBrownianMotion(data=self.dataset_df,
                         model_hyperparameters=model_dict['model_hyperparameters'], 
-                        save_dir=self.output_directory, 
+                        save_dir=path.join(self.output_directory, model_name), 
                         model_name=model_name,
                         x_vars=self.x_vars,
                         y_vars=self.y_vars,
+                        seed=self._rand_state_mgr,
                         test_split_filter=model_dict['test_split_filter'],
                         train_split_filter=model_dict['train_split_filter'],
                         evaluation_filters=model_dict['evaluation_filters'], )

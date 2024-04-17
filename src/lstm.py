@@ -1,7 +1,7 @@
 import logging 
 
 from timeseriesmodel import TimeSeriesModel
-
+import numpy as np 
 class LSTM(TimeSeriesModel):
     # Define an LSTM class that inherits from the model class, implemented using pytorch as similar to this link: 
     # https://www.datacamp.com/tutorial/lstm-python-stock-market
@@ -15,6 +15,7 @@ class LSTM(TimeSeriesModel):
         model_name, 
         x_vars, 
         y_vars, 
+        seed:np.random.RandomState,
         test_split_filter=None, 
         train_split_filter=None, 
         evaluation_filters:list=[]
