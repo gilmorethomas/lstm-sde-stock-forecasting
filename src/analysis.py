@@ -114,7 +114,10 @@ class Analysis():
         logging.info(f"Preprocessing dataset for {self.dataset_name} using {self.preprocessing_callback}")
         if self.preprocessing_callback is not None: 
             self.dataset_df = self.preprocessing_callback(self._raw_dataset_df)
-            
+        # Get rid of columns that are not x_vars or y_vars and say which columns we are removing 
+        logging.info(f"Removing columns {self.dataset_df.columns.difference(self.x_vars + self.y_vars)}")
+        self.dataset_df = self.dataset_df[self.x_vars + self.y_vars]
+        logging.info(f"Columns remaining {self.dataset_df.columns}")
 
     def run_analysis(self, run_descriptive=True, run_predictive=True): 
         logging.info(f"Running analysis for {self.dataset_name}")
