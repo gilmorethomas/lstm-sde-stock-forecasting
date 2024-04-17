@@ -43,6 +43,11 @@ def preprocessing_callback(df):
             df[col] = (df[col] - df[col].min()) / (df[col].max() - df[col].min())
     # Impute data using data from the previous day
     df = df.fillna(method='ffill')
+    # convert date to datetime
+    df['Date_string'] = df['Date']
+    df['Date'] = pd.to_datetime(df['Date'])
+    # Calculate a days since start column, returning it as an integer
+    df['Days_since_start'] = (df['Date'] - df['Date'].min()).dt.days
     # Set the index to the date
     #df = df.set_index('Date')
     return df
@@ -75,7 +80,7 @@ if __name__ == "__main__":
     analysis = AnalysisManager(raw_dir, output_dir, x_vars_to_plot = ['Date'], y_vars_to_plot=None, plotting = {'x_vars': 'Date', 'y_vars': None}, foo='bar')
     analysis.set_preprocessing_callback(preprocessing_callback)
     # Add the analysis objects to the analysis manager 
-    analysis.add_analysis_objs(analysis_dict=stock_df_dict, x_vars=['Date'], y_vars=['Close'])
+    analysis.add_analysis_objs(analysis_dict=stock_df_dict, x_vars=['Date', 'Days_since_start'], y_vars=['Close'])
     
     analysis.preprocess_datasets()
     #analysis.validate_datasets()
