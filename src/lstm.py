@@ -1,8 +1,8 @@
 import logging 
 
-from model import Model
+from timeseriesmodel import TimeSeriesModel
 
-class LSTM(Model):
+class LSTM(TimeSeriesModel):
     # Define an LSTM class that inherits from the model class, implemented using pytorch as similar to this link: 
     # https://www.datacamp.com/tutorial/lstm-python-stock-market
     # https://www.tensorflow.org/tutorials/structured_data/time_series

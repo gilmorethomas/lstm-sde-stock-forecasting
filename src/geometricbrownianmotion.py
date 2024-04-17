@@ -1,9 +1,9 @@
 import logging 
 
-from model import Model
+from timeseriesmodel import TimeSeriesModel
 import numpy as np
 import numpy as np
-class GeometricBrownianMotion(Model):
+class GeometricBrownianMotion(TimeSeriesModel):
     # Define a Geometric Brownian Motion class that inherits from the model class
     def __init__(self, 
         data, 
@@ -53,7 +53,8 @@ class GeometricBrownianMotion(Model):
 
     def train(self):
         """Either calculate the mu and sigma or use the provided values to train the model
-        """        
+        """   
+        import pdb; pdb.set_trace()
         if self.model_hyperparameters['calculate_mu'] or self.model_hyperparameters['calculate_sigma']:
             logging.info("Calculating mu and sigma")
             self.train_params['mu'] = {}
