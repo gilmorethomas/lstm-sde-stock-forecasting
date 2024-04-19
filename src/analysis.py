@@ -1,15 +1,13 @@
 import logging 
 from os import path, makedirs
 # import plotting module 
-from plotting import Plotting
-import sklearn
-import torch
+from plotting import plot_all_x_y_combinations
 # import tensorflow as tf
+import re
+import os
 from lstm import LSTM 
 from geometricbrownianmotion import GeometricBrownianMotion
-from sklearn.preprocessing import MinMaxScaler
-
-import pandas as pd
+from numpy.random import RandomState
 
 class AnalysisManager(): 
     # Create an analysis manager whose job is to manage the analysis objects
@@ -17,9 +15,7 @@ class AnalysisManager():
     # It should also take a raw directory and an output directory
     # Raw directory is where the raw data is stored
     # Output directory is where the output data is stored
-
-
-    def __init__(self, raw_dir, output_dir, **kwargs): 
+    def __init__(self, raw_dir, output_dir, master_seed = 0, **kwargs): 
         """
         Creates the analysis maanger 
         Args:
@@ -28,7 +24,25 @@ class AnalysisManager():
         """
         self.analysis_objects_dict = {}
         self.raw_dir = raw_dir
-        self.output_dir = output_dir
+        # Create a directory called at output_dir/output 
+        self.output_dir = self._override_output_dir(output_dir)
+        self._random_state_mgr = RandomState(master_seed)
+    def _override_output_dir(self, output_dir):
+        outdir = path.join(output_dir, 'output_v0')
+        if path.exists(outdir):
+            # If the output directory exists, roll the output directory to output_v{version_number}, 
+            # where version number is the next available version number
+
+            # Get the version number
+            version_number = 0
+            for f in os.listdir(output_dir):
+                if re.match(r'output_v\d+', f):
+                    version_number += 1
+            # Create the new output directory and override outdir
+            outdir = path.join(output_dir, f'output_v{version_number}')
+        logging.info(f"Creating output directory {outdir}")
+        makedirs(outdir)
+        return outdir
 
     def set_preprocessing_callback(self, preprocessing_callback):
         """ 
@@ -51,7 +65,8 @@ class AnalysisManager():
                 x_vars, 
                 y_vars, 
                 path.join(self.output_dir, dataset_name), 
-                preprocessing_callback=self.preprocessing_callback
+                preprocessing_callback=self.preprocessing_callback,
+                seed=self._random_state_mgr
             )
             self.analysis_objects_dict[dataset_name] = analysis
     
@@ -98,7 +113,7 @@ class AnalysisManager():
         raise NotImplementedError("This method is not implemented yet")
             
 class Analysis(): 
-    def __init__(self, dataset_name, dataset_df, x_vars, y_vars, output_directory, preprocessing_callback=None):
+    def __init__(self, dataset_name, dataset_df, x_vars, y_vars, output_directory, seed, preprocessing_callback=None):
          
         self.dataset_name = dataset_name
         self._raw_dataset_df = dataset_df
@@ -106,9 +121,11 @@ class Analysis():
         self.output_directory = output_directory
         self.x_vars = x_vars
         self.y_vars = y_vars
+        self._rand_state_mgr = seed
         if not(path.exists(output_directory)):
             logging.info(f"Creating output directory {output_directory}")
             makedirs(output_directory)
+        
     def preprocess_dataset(self):
         # preprocess the dataset, using the preprocessing_callback if provided
         logging.info(f"Preprocessing dataset for {self.dataset_name} using {self.preprocessing_callback}")
@@ -181,10 +198,11 @@ class Analysis():
                     model = LSTM(data=self.dataset_df, 
                         model_hyperparameters=model_dict['library_hyperparameters'],
                         units = model_dict['units'],
-                        save_dir=self.output_directory, 
+                        save_dir=path.join(self.output_directory, model_name), 
                         model_name=model_name,
                         x_vars=self.x_vars,
                         y_vars=self.y_vars,
+                        seed=self._rand_state_mgr,
                         test_split_filter=model_dict['test_split_filter'],
                         train_split_filter=model_dict['train_split_filter'],
                         evaluation_filters=model_dict['evaluation_filters'], )
@@ -196,10 +214,11 @@ class Analysis():
                     logging.info(f"Creating GBM model {model_name}")
                     model = GeometricBrownianMotion(data=self.dataset_df,
                         model_hyperparameters=model_dict['model_hyperparameters'], 
-                        save_dir=self.output_directory, 
+                        save_dir=path.join(self.output_directory, model_name), 
                         model_name=model_name,
                         x_vars=self.x_vars,
                         y_vars=self.y_vars,
+                        seed=self._rand_state_mgr,
                         test_split_filter=model_dict['test_split_filter'],
                         train_split_filter=model_dict['train_split_filter'],
                         evaluation_filters=model_dict['evaluation_filters'], )
@@ -242,5 +261,12 @@ class Analysis():
     def plot_dataset(self, plot_types):
         # Use the plotting class to plot the entirety of the dataset (all columns as options)
         for plot_type in plot_types:
-            plotter = Plotting(self.dataset_df, plot_type)
-            plotter.plot()
+            plot_all_x_y_combinations(self.dataset_df, 
+                x_cols=None, 
+                y_cols=None, 
+                plot_type=plot_type, 
+                output_dir=self.output_dir, 
+                output_name='Stock Market Data', 
+                save_png=True, 
+                save_html=True)
+

@@ -6,9 +6,8 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.layers import Input
 from tensorflow.keras.optimizers import Adam
-
-
-class LSTM(Model):
+from timeseriesmodel import TimeSeriesModel
+class LSTM(TimeSeriesModel):
     # Define an LSTM class that inherits from the model class, implemented using pytorch as similar to this link: 
     # https://www.datacamp.com/tutorial/lstm-python-stock-market
     # https://www.tensorflow.org/tutorials/structured_data/time_series
@@ -21,6 +20,7 @@ class LSTM(Model):
         model_name, 
         x_vars, 
         y_vars, 
+        seed:np.random.RandomState,
         test_split_filter=None, 
         train_split_filter=None, 
         evaluation_filters:list=[]
@@ -64,8 +64,10 @@ class LSTM(Model):
         logging.info("Save not implemented yet")
 
     def plot(self):
-        logging.info("Plot not implemented yet")
-    
+        # Call the base model class plotting function 
+        super().plot()
+        # Add any additional custom plots 
+        logging.info("Joey, implement any custom plots needed")    
     def report(self):
         logging.info("Report not implemented yet")
 

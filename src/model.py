@@ -1,7 +1,9 @@
-from os import path 
+from os import path, makedirs
 import pickle
 import logging
 import pandas as pd 
+import numpy as np
+from plotting import plot_all_x_y_combinations
 
 class Model(): 
     # Define a model class that takes a test train split and model hyperparameters
@@ -20,6 +22,7 @@ class Model():
         model_name,
         x_vars:list,
         y_vars:list,
+        seed=np.random.RandomState,
         test_split_filter=None, 
         train_split_filter=None, 
         evaluation_filters:dict={}, 
@@ -30,11 +33,16 @@ class Model():
         self.train_split_filter = train_split_filter
         self.evaluation_filters = evaluation_filters
         self.save_dir = save_dir
+        if not path.exists(save_dir):
+            logging.info(f"Creating save directory {save_dir}")
+            makedirs(save_dir)
         self.model_name = model_name
         self.model = None
         self.train_params = {}
         self.x_vars = x_vars
         self.y_vars = y_vars
+        self._rand_state_mgr = seed
+        self.train_data_fit = None
     
     def split_data(self):
         # Split the data into test and train using sklearn.model_selection.train_test_split
@@ -62,7 +70,7 @@ class Model():
     def save(self):
         # Save the model to a file using .pkl serialization or some other method, which is dependent on the library
         if self.model is None:
-            logging.error("No model exists yet")
+            logging.info("No model exists yet")
         with open(path.join(self.save_dir, self.model_name + '.pkl'), 'wb') as file:  
             logging.info(f"Saving model to {path.join(self.save_dir, self.model_name + '.pkl')}")
             pickle.dump(self.model, file)
@@ -76,14 +84,46 @@ class Model():
         else:
             logging.status(f"No model exists at {path.join(self.save_dir, self.model_name + '.pkl')}")
     
-    def plot(self):
+    def plot(self, plot_types = ['scatter', 'line', 'bar']):
         # Plot the model
-        raise NotImplementedError("This should be implemented by the child class")
-    
+        # Use the plotting class to plot the entirety of the dataset (all columns as options)
+        # Create a list of columns from the train_data_fit that do not exist in the x_vars
+        # This will be used to plot all x vs y combinations
+        if self.train_data_fit is not None:
+            y_cols = [col for col in self.train_data_fit.columns if col not in self.x_vars]
+            # Plot all x, y combinations
+        assert all([col in self.train_data_fit.columns for col in self.x_vars]), "All x_vars must be in the train_data_fit"
+        for plot_type in plot_types:
+            plot_all_x_y_combinations(self.train_data_fit, 
+                x_cols=self.x_vars, 
+                y_cols=y_cols, 
+                plot_type=plot_type, 
+                output_dir=path.join(self.save_dir, 'train_data_fit'), 
+                output_name=self.model_name, 
+                save_png=True, 
+                save_html=True)
     def report(self):
         # Report the model's performance
-        raise NotImplementedError("This should be implemented by the child class")
-    
+        # This should include the model hyperparameters, the model's performance on the test data, and the model's performance on the evaluation data
+        # This should be saved to a file in the save directory
+        # 
+        # The report should include the following:
+        # - Model hyperparameters
+        # - Model performance on test data
+        # - Model performance on evaluation data
+        # - Any other relevant information
+
+        # Write the train and model data to csv 
+        logging.info(f'Writing report to {self.save_dir}')
+        pd.DataFrame(self.train_data).to_csv(path.join(self.save_dir, 'train_data.csv'))
+        pd.DataFrame(self.test_data).to_csv(path.join(self.save_dir, 'test_data.csv'))
+        for k, v in self.evaluation_data.items():
+            pd.DataFrame(v).to_csv(path.join(self.save_dir, f'evaluation_data_{k}.csv'))
+        # Write the train fit data to csv
+        if self.train_data_fit is not None:
+            pd.DataFrame(self.train_data_fit).to_csv(path.join(self.save_dir, 'train_data_fit.csv'))
+        else:
+            logging.info('No training data found, bypassing writing to csv')
     def _validate_hyperparameters(self):
         # Validate the hyperparameters of the model
         raise NotImplementedError("This should be implemented by the child class")

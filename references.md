@@ -1,0 +1,1 @@
+https://medium.com/analytics-vidhya/better-way-to-model-geometric-brownian-motion-4c1b73aeec2e

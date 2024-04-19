@@ -9,131 +9,106 @@ import logging
 from itertools import product 
 pio.renderers.default='browser'
 
-class Plotting(): 
-    def __init__(self, df, plot_type, output_dir): 
-        self.df = df
-        self.plot_type = plot_type
-        self.output_dir = output_dir
-        
-        # Use plotly to plot each combination of columns in the dataframe 
-
-        # You should save each of these plots as a png and html file in the output directory
-        # The filenames should be the column names of the two columns being plotted
-
-        # For example, if you are plotting the columns "A" and "B", the files should be named "A_B.png" and "A_B.html",
-        # where A_B png is stored in self.output_dir/pgn and A_B.html is stored in self.output_dir/html
-
-        # You should use the plot type to determine the type of plot to create (scatter, line, bar, etc.)
-        
-    def plot(self):
-        
-         LastNameInFilePath = os.path.split(self.output_dir)[-1];
-         if not os.path.exists(self.output_dir):
-             os.makedirs(self.output_dir)
-# =============================================================================
-#          if not os.path.exists(os.path.join(self.output_dir, 'png')):
-#              os.makedirs(os.path.join(self.output_dir, 'png'))
-# =============================================================================
-         if not os.path.exists(os.path.join(self.output_dir, 'html')):
-             os.makedirs(os.path.join(self.output_dir, 'html'))
-         if self.plot_type == 'scatter':
-           test = self.df.columns[0];
-           StackedPlot = self.get_subplot(self.df, test, self.plot_type, LastNameInFilePath);
-           StackedPlot.write_html(f"{self.output_dir}/html/{self.plot_type}_StackedPlot.html", auto_open=False)
-            
-         #for col1, col2 in product(self.df.columns, self.df.columns): 
-         ListOfcolumns = self.df.columns.tolist()
-         col1 = ListOfcolumns[0];
-         for col2 in ListOfcolumns[1:]:
-             if col1 == col2:
-                 
-                 continue  # Skip this iteration
-             filename = f"{col1}_{col2}"
-                         
-             fig = self.get_plotType(self.df, col1, col2, self.plot_type, LastNameInFilePath)
-             # TODO: add DataFrame name in this.
-             try:
-                fig.write_html(f"{self.output_dir}/html/{self.plot_type}_{filename}.html", auto_open=False)
-                # TODO: Get this write image to work, not sure why it isn't working
-                #fig.write_image(f"{self.output_dir}/png/{filename}.png", auto_open=False)
-                print(f"Plotted and saved: {LastNameInFilePath} {self.plot_type} {filename}")
-             except Exception as e:
-                 print(f"Error plotting {LastNameInFilePath} {filename}: {e}")
-                        
-    def get_plotType(self, df, col1, col2, plot_type, LastNameInFilePath):
-        # Determine plot type based on data type of columns
-        # TODO: Need to pass down DataFrame Name to put into Title
-        
-        if plot_type == 'scatter':
-            fig = px.scatter(df, x=col1, y=col2, title=f"{col1} vs {col2}")
-        elif plot_type == 'line':
-            fig = px.line(df, x=col1, y=col2, title=f"{col1} vs {col2}")
-        elif plot_type == 'bar':
-            fig = px.bar(df, x=col1, y=col2, title=f"{col1} vs {col2}")
-        # Add more plot types as needed
-        
-        fig.update_layout(
-            title=f"{LastNameInFilePath}: {col1} vs {col2}",
-            xaxis_title=col1,
-            yaxis_title=col2,
-            template='plotly_dark',  # Use dark theme
-            hovermode='closest',  # Show hover information for the closest point
-            legend=dict(
-                orientation='h',  # Horizontal legend
-                yanchor='bottom',
-                y=1.02,
-                xanchor='right',
-                x=1
-            ),
-        )
-
-        return fig
+def plot_all_x_y_combinations(df, x_cols, y_cols, plot_type, output_dir, output_name, save_png=True, save_html=True):
+    # Plot all x, y combinations
+    if x_cols is None:
+        logging.info("No x columns provided, using all columns")
+        x_cols = df.columns
+    if y_cols is None:
+        logging.info("No y columns provided, using all columns")
+        y_cols = df.columns
+    for x_col, y_col in product(x_cols, y_cols):
+        if x_col == y_col:
+            continue
+        if x_col not in df.columns or y_col not in df.columns:
+            logging.error(f"Column {x_col} or {y_col} not in DataFrame")
+            continue
+        output_file = f"{output_name}_{x_col}_vs_{y_col}"
+        fig = plot(df=df,
+            x_col=x_col, 
+            y_col=y_col, 
+            plot_type=plot_type,
+            trace_name = output_file)
+        title = f'{x_col}'.title() + ' vs. ' + f'{y_col}'.title()
+        finalize_plot(fig=fig, 
+            title=title,
+            filename=f'{output_file}_{plot_type}', 
+            output_dir=output_dir, 
+            save_png=save_png, 
+            save_html=save_html)
     
-    def get_subplot(self, df, col1, plot_type, LastNameInFilePath):
-        
-        ListOfNames = df.columns.tolist();
-        
-        fig = make_subplots(rows = len(ListOfNames)-1, 
-                            cols = 1, 
-                            shared_xaxes=True,
-                            vertical_spacing=0.02)
-                            #subplot_titles= [col1 + " vs " + s for s in ListOfNames[1:]])
-        RowCnt = 0;
-        for col2 in ListOfNames:
-            if col1 == col2:
-                continue
-            RowCnt= RowCnt + 1;
-            fig.add_trace(go.Scatter(x=df[col1], y=df[col2], 
-                                     mode='markers', 
-                                     name=f"Plot {RowCnt}: {col1} vs {col2}"),
-                                     row = RowCnt, 
-                                     col = 1)
-            fig.update_traces(marker=dict(size = 1))
-            fig.update_yaxes(title_text=col2, row=RowCnt, col=1)
-            
-        fig.update_xaxes(title_text="Date", row=RowCnt, col=1)
-        fig.update_layout(title_text= LastNameInFilePath +  " Data",
-                          showlegend=False,
-                          template='plotly_dark')
-        # Show the plot
-        return fig
-# =============================================================================
-# if __name__ == "__main__":
-#     # Example dataframe
-#     data = {
-#         'A': [1, 2, 3, 4, 5],
-#         'B': [2, 3, 4, 5, 6],
-#         'C': ['a', 'b', 'c', 'd', 'e'],
-#         'D': [10, 20, 30, 40, 50]
-#     }
-#     df = pd.DataFrame(data)
-#     
-#     output_dir = 'joey_output'
-#     
-#     plot_type = 'scatter'
-# 
-#     # Example usage of Plotter class
-#     plotter = Plotting(df, plot_type, output_dir)
-#     plotter.plot()
-# =============================================================================
-        
+
+def plot(df, x_col, y_col, plot_type, trace_name, fig=None):
+    """Plots a single x, y combination
+    
+    Args:
+        x_col (str): The x column to plot
+        y_col (str): The y column to plot
+        plot_type (str): The type of plot to make
+        output_dir (str): The output directory to save the plot
+        output_name (str): The output name of the plot
+        fig (plotly.graph_objects.Figure, optional): The figure to add the plot to. Defaults to None. If you pass a figure, it will add the plot to the figure and return the figure.
+    """
+    if fig is not None: 
+        logging.info(f"Adding plot {x_col} vs {y_col} to existing figure with name {trace_name}")
+    else: 
+        # Create a new plotly graph objects figure
+        fig = go.Figure()
+        fig.update_layout(
+            title=f"{x_col} vs {y_col}",
+            xaxis_title=x_col,
+            yaxis_title=y_col,
+        )
+    if plot_type == 'scatter':
+        # add a trace to the figure
+        fig.add_trace(go.Scatter(x=df[x_col], y=df[y_col], mode='markers', name=trace_name))
+    elif plot_type == 'line':
+        # add a line trace to the figure
+        fig.add_trace(go.Scatter(x=df[x_col], y=df[y_col], mode='lines', name=trace_name))
+    elif plot_type == 'bar':
+        # add a bar trace to the figure
+        fig.add_trace(go.Bar(x=df[x_col], y=df[y_col], name=f"{x_col} vs {y_col}"))
+    else: 
+        logging.error(f"Plot type {plot_type} not implemented")
+        return None
+    return fig
+    
+def finalize_plot(fig, title, filename, output_dir, save_png=True, save_html=True):
+    """Writes a plot to a png and html file
+
+    Args:
+        fig (plotly.graph_objects.Figure): The plotly figure to save
+        filename (str, path-like): The filename to save the plot as
+        output_dir (str, path-like): The directory to save the plot in
+        save_png (bool, optional): Whether or not to save png. Defaults to True.
+        save_html (bool, optional): Whether or not to save html. Defaults to True.
+
+    Returns:
+        _type_: _description_
+    """     
+    if fig is None: 
+        logging.error("No figure provided")
+    logging.info(f"Finalizing plot {filename}")
+    fig.update_layout(
+        title=title,
+        template='presentation',  # Use dark theme
+        hovermode='closest',  # Show hover information for the closest point
+        legend=dict(
+            orientation='h',  # Horizontal legend
+            yanchor='bottom',
+            y=1.02,
+            xanchor='right',
+            x=1
+        ),
+    )
+    if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+    if save_html and not os.path.exists(os.path.join(output_dir, 'html')):
+            os.makedirs(os.path.join(output_dir, 'html'))
+    if save_png and not os.path.exists(os.path.join(output_dir, 'png')):
+            os.makedirs(os.path.join(output_dir, 'png'))
+    
+    if save_png:
+        fig.write_image(f"{output_dir}/png/{filename}.png")
+    if save_html: 
+        fig.write_html(f"{output_dir}/html/{filename}.html")
