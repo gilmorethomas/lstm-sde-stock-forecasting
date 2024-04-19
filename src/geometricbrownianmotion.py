@@ -112,7 +112,9 @@ class GeometricBrownianMotion(TimeSeriesModel):
     def predict(self):
         ...
     def plot(self):
-        ...
+        # Call the base model class plotting function 
+        super().plot()
+        # Add any additional custom plots 
     def report(self):
         super().report()
 

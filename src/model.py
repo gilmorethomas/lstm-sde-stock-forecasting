@@ -3,6 +3,7 @@ import pickle
 import logging
 import pandas as pd 
 import numpy as np
+from plotting import plot_all_x_y_combinations
 
 class Model(): 
     # Define a model class that takes a test train split and model hyperparameters
@@ -83,10 +84,11 @@ class Model():
         else:
             logging.status(f"No model exists at {path.join(self.save_dir, self.model_name + '.pkl')}")
     
-    def plot(self):
+    def plot(self, plot_types = ['scatter', 'line', 'bar']):
         # Plot the model
-        raise NotImplementedError("This should be implemented by the child class")
-    
+        # Use the plotting class to plot the entirety of the dataset (all columns as options)
+        for plot_type in plot_types:
+            plot_all_x_y_combinations(self.train_data_fit, x_cols=None, y_cols=None, plot_type='scatter', output_dir=self.save_dir, output_name=self.model_name, save_png=True, save_html=True)
     def report(self):
         # Report the model's performance
         # This should include the model hyperparameters, the model's performance on the test data, and the model's performance on the evaluation data

@@ -55,8 +55,10 @@ class LSTM(TimeSeriesModel):
         logging.info("Save not implemented yet")
 
     def plot(self):
-        logging.info("Plot not implemented yet")
-    
+        # Call the base model class plotting function 
+        super().plot()
+        # Add any additional custom plots 
+        logging.info("Joey, implement any custom plots needed")    
     def report(self):
         logging.info("Report not implemented yet")
 # tf.keras.layers.LSTM(

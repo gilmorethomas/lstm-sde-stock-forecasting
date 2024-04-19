@@ -1,7 +1,7 @@
 import logging 
 from os import path, makedirs
 # import plotting module 
-from plotting import Plotting
+from plotting import plot_all_x_y_combinations
 import sklearn
 import torch
 # import tensorflow as tf
@@ -112,6 +112,7 @@ class Analysis():
         if not(path.exists(output_directory)):
             logging.info(f"Creating output directory {output_directory}")
             makedirs(output_directory)
+        
     def preprocess_dataset(self):
         # preprocess the dataset, using the preprocessing_callback if provided
         logging.info(f"Preprocessing dataset for {self.dataset_name} using {self.preprocessing_callback}")
@@ -247,5 +248,12 @@ class Analysis():
     def plot_dataset(self, plot_types):
         # Use the plotting class to plot the entirety of the dataset (all columns as options)
         for plot_type in plot_types:
-            plotter = Plotting(self.dataset_df, plot_type)
-            plotter.plot()
+            plot_all_x_y_combinations(self.dataset_df, 
+                x_cols=None, 
+                y_cols=None, 
+                plot_type=plot_type, 
+                output_dir=self.output_dir, 
+                output_name='Stock Market Data', 
+                save_png=True, 
+                save_html=True)
+

@@ -52,7 +52,9 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
                     'calculate_mu' : False, 
                     'calculate_sigma': False, 
                     'mu': 0.0001, 
-                    'sigma': 0.1
+                    'sigma': 0.1,
+                    'num_sims' : 5
+
                 },
             }
         }
