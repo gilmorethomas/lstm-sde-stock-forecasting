@@ -87,8 +87,21 @@ class Model():
     def plot(self, plot_types = ['scatter', 'line', 'bar']):
         # Plot the model
         # Use the plotting class to plot the entirety of the dataset (all columns as options)
+        # Create a list of columns from the train_data_fit that do not exist in the x_vars
+        # This will be used to plot all x vs y combinations
+        if self.train_data_fit is not None:
+            y_cols = [col for col in self.train_data_fit.columns if col not in self.x_vars]
+            # Plot all x, y combinations
+        assert all([col in self.train_data_fit.columns for col in self.x_vars]), "All x_vars must be in the train_data_fit"
         for plot_type in plot_types:
-            plot_all_x_y_combinations(self.train_data_fit, x_cols=None, y_cols=None, plot_type='scatter', output_dir=self.save_dir, output_name=self.model_name, save_png=True, save_html=True)
+            plot_all_x_y_combinations(self.train_data_fit, 
+                x_cols=self.x_vars, 
+                y_cols=y_cols, 
+                plot_type=plot_type, 
+                output_dir=path.join(self.save_dir, 'train_data_fit'), 
+                output_name=self.model_name, 
+                save_png=True, 
+                save_html=True)
     def report(self):
         # Report the model's performance
         # This should include the model hyperparameters, the model's performance on the test data, and the model's performance on the evaluation data

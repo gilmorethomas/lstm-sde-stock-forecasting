@@ -47,14 +47,31 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
                     'num_sims' : 5
                 }
             }  ,
-            'gbm_provided' : {
+            'GBM Steady Large Increase' : {
                 'model_hyperparameters': {
                     'calculate_mu' : False, 
                     'calculate_sigma': False, 
                     'mu': 0.0001, 
                     'sigma': 0.1,
                     'num_sims' : 5
-
+                },
+            },
+            'GBM Unsteady 1' : {
+                'model_hyperparameters': {
+                    'calculate_mu' : False, 
+                    'calculate_sigma': False, 
+                    'mu': 0.1, 
+                    'sigma': 0.05,
+                    'num_sims' : 5
+                },
+            },
+            'GBM Unsteady 2' : {
+                'model_hyperparameters': {
+                    'calculate_mu' : False, 
+                    'calculate_sigma': False, 
+                    'mu': 0.1, 
+                    'sigma': 0.0,
+                    'num_sims' : 5
                 },
             }
         }

@@ -29,8 +29,10 @@ def plot_all_x_y_combinations(df, x_cols, y_cols, plot_type, output_dir, output_
             y_col=y_col, 
             plot_type=plot_type,
             trace_name = output_file)
+        title = f'{x_col}'.title() + ' vs. ' + f'{y_col}'.title()
         finalize_plot(fig=fig, 
-            filename=output_file, 
+            title=title,
+            filename=f'{output_file}_{plot_type}', 
             output_dir=output_dir, 
             save_png=save_png, 
             save_html=save_html)
@@ -71,7 +73,7 @@ def plot(df, x_col, y_col, plot_type, trace_name, fig=None):
         return None
     return fig
     
-def finalize_plot(fig, filename, output_dir, save_png=True, save_html=True):
+def finalize_plot(fig, title, filename, output_dir, save_png=True, save_html=True):
     """Writes a plot to a png and html file
 
     Args:
@@ -88,8 +90,8 @@ def finalize_plot(fig, filename, output_dir, save_png=True, save_html=True):
         logging.error("No figure provided")
     logging.info(f"Finalizing plot {filename}")
     fig.update_layout(
-        title=f"{filename}",
-        template='plotly_dark',  # Use dark theme
+        title=title,
+        template='presentation',  # Use dark theme
         hovermode='closest',  # Show hover information for the closest point
         legend=dict(
             orientation='h',  # Horizontal legend

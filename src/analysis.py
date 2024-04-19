@@ -2,14 +2,12 @@ import logging
 from os import path, makedirs
 # import plotting module 
 from plotting import plot_all_x_y_combinations
-import sklearn
-import torch
 # import tensorflow as tf
+import re
+import os
 from lstm import LSTM 
 from geometricbrownianmotion import GeometricBrownianMotion
-from sklearn.preprocessing import MinMaxScaler
 from numpy.random import RandomState
-import pandas as pd
 
 class AnalysisManager(): 
     # Create an analysis manager whose job is to manage the analysis objects
@@ -17,8 +15,6 @@ class AnalysisManager():
     # It should also take a raw directory and an output directory
     # Raw directory is where the raw data is stored
     # Output directory is where the output data is stored
-
-
     def __init__(self, raw_dir, output_dir, master_seed = 0, **kwargs): 
         """
         Creates the analysis maanger 
@@ -28,8 +24,25 @@ class AnalysisManager():
         """
         self.analysis_objects_dict = {}
         self.raw_dir = raw_dir
-        self.output_dir = output_dir
+        # Create a directory called at output_dir/output 
+        self.output_dir = self._override_output_dir(output_dir)
         self._random_state_mgr = RandomState(master_seed)
+    def _override_output_dir(self, output_dir):
+        outdir = path.join(output_dir, 'output_v0')
+        if path.exists(outdir):
+            # If the output directory exists, roll the output directory to output_v{version_number}, 
+            # where version number is the next available version number
+
+            # Get the version number
+            version_number = 0
+            for f in os.listdir(output_dir):
+                if re.match(r'output_v\d+', f):
+                    version_number += 1
+            # Create the new output directory and override outdir
+            outdir = path.join(output_dir, f'output_v{version_number}')
+        logging.info(f"Creating output directory {outdir}")
+        makedirs(outdir)
+        return outdir
 
     def set_preprocessing_callback(self, preprocessing_callback):
         """ 
