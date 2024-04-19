@@ -4,7 +4,7 @@ import logging
 from os import path, getcwd
 import os
 from analysis import AnalysisManager# The main driver for the lstm-sde-stock-forecasting project.
-
+from model_parameters import create_models_dict
 # This study explores the integration of stochastic modeling and 
 # advanced machine learning techniques, focusing specifically on 
 # recurrent neural networks (RNNs) to forecast stock prices. 
@@ -41,47 +41,32 @@ def preprocessing_callback(df):
         else:
     # Normalize the dataset, giving a max of 1 and min of 0
             df[col] = (df[col] - df[col].min()) / (df[col].max() - df[col].min())
+    # Where there is not an entry for a given day, use the data from the previous day
+    # convert date to datetime
+    df['Date_string'] = df['Date']
+    df['Date'] = pd.to_datetime(df['Date'])
+    # Reindex the dataframe to include all dates
+    idx = pd.date_range(df['Date'].min(), df['Date'].max())
+    idx.name = 'Date'
+    # Set missing dates to NaN for detection, to later impute
+    df = df.set_index('Date').reindex(idx, fill_value=np.nan)
+    # s.index = pd.DatetimeIndex(s.index)
+    logging.info("NEED TO PULL INFORMATION ABOUT HOW MUCH DATA IS MISSING, NEED TO ADD A COLUMN THAT IT WAS IMPUTED ")
+    # Add indicators for columns that are imputed
+    for col in df.columns: 
+        if df[col].dtype in ['float64', 'int64']:
+            df[f'{col}_imputed_indicator'] = df[col].isnull().astype(int)
+
     # Impute data using data from the previous day
     df = df.fillna(method='ffill')
-    # Set the index to the date
-    #df = df.set_index('Date')
+    
+    # Add the date column back in by resetting index
+    df = df.reset_index(drop=False)
+
+    # Calculate a days since start column, returning it as an integer
+    df['Days_since_start'] = (df['Date'] - df['Date'].min()).dt.days
     return df
 
-def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
-    """Creates the dictionary of predictive models to use
-
-    Args:
-        gbm (bool, optional): Whether or not to use the GBM models. Defaults to True.
-        lstm (bool, optional): Whether or not to use the LSTM models. Defaults to True.
-        lstm_sde (bool, optional): Whether or not to use the LSTM SDE models. Defaults to True.
-
-    Returns:
-        dict:   Dictionary of model parameters. Primary key is the model type. 
-                Secondary key is the model name, with the value being the model parameters.
-    """    
-    models_dict = {}
-    if gbm: 
-        models_dict["GBM"] = {
-            # 'gbm_1' : 'model_hyperparameters': {'mu': 0.0001, 'sigma': 0.02},
-            # 'gbm_2' : 'model_hyperparameters': {'mu': 0.0001, 'sigma': 0.1},
-        }
-    if lstm_sde:
-        models_dict["LSTM_SDE"] = None 
-
-    if lstm:
-        logging.info('Creating placeholder for lstm model using stochastic differential equations (SDE)')
-        # TODO allow test train split to also be a callback to a function, so we can filter specifically on the date
-        # See valid model arguments documentation https://www.tensorflow.org/api_docs/python/tf/keras/layers/LSTM
-        models_dict["LSTM"] = {
-            'lstm_5node_1' : {
-                'units' : 1,
-                'library_hyperparameters' : {
-                    'activation' : 'relu',
-                    'recurrent_activation' : 'sigmoid',
-                }
-            },
-        }
-    return models_dict
 
 if __name__ == "__main__":
     logging.getLogger().setLevel(logging.INFO)
@@ -110,11 +95,11 @@ if __name__ == "__main__":
     analysis = AnalysisManager(raw_dir, output_dir, x_vars_to_plot = ['Date'], y_vars_to_plot=None, plotting = {'x_vars': 'Date', 'y_vars': None}, foo='bar')
     analysis.set_preprocessing_callback(preprocessing_callback)
     # Add the analysis objects to the analysis manager 
-    analysis.add_analysis_objs(stock_df_dict)
+    analysis.add_analysis_objs(analysis_dict=stock_df_dict, x_vars=['Date', 'Days_since_start'], y_vars=['Close'])
     
     analysis.preprocess_datasets()
     #analysis.validate_datasets()
-    models_dict = create_models_dict(gbm=False, lstm=True, lstm_sde=False)
+    models_dict = create_models_dict(gbm=True, lstm=False, lstm_sde=False)
     analysis.set_models_for_analysis_objs(models_dict=models_dict)
     analysis.run_analysis(run_descriptive=False, run_predictive=True)
     # Print the stock names
