@@ -23,7 +23,10 @@ class LSTM(TimeSeriesModel):
         seed:np.random.RandomState,
         test_split_filter=None, 
         train_split_filter=None, 
-        evaluation_filters:list=[]
+        evaluation_filters:list=[],
+        scaler=None,
+        save_html=True,
+        save_png=True
     ):
         logging.info("Creating lstm model")
         super().__init__(data=data, 
@@ -34,7 +37,10 @@ class LSTM(TimeSeriesModel):
             y_vars=y_vars,
             test_split_filter=test_split_filter,
             train_split_filter=train_split_filter,
-            evaluation_filters=evaluation_filters)
+            evaluation_filters=evaluation_filters,
+            scaler=scaler,
+            save_html=save_html,
+            save_png=save_png)
         # Unpack the model hyperparameters into class member viarbles 
         # self.model = keras_LSTM(1)
         self.units = units

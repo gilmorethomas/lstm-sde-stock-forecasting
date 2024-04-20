@@ -16,11 +16,11 @@ def create_test_train_split_params(start_date_train='2009-01-01',
     params['test_split_filter']  =  lambda x: (x['Date'] >= start_date_test) & (x['Date'] <= '2019-01-01')
     # Create a dictionary of evaluation filters. The keys are the evaluation filter names, and the values are the lambda functions
     eval_filters = {}
-    eval_filters['5_day'] = lambda x: (x['Date'] >= evaluation_start_date) & (x['Date'] <= '2019-01-06')
-    eval_filters['1_month'] = lambda x: (x['Date'] >= evaluation_start_date) & (x['Date'] <= '2019-02-02')
-    eval_filters['6_month'] = lambda x: (x['Date'] >= evaluation_start_date) & (x['Date'] <= '2019-07-02')
-    eval_filters['1_year'] = lambda x: (x['Date'] >= evaluation_start_date) & (x['Date'] <= '2020-01-02')
     eval_filters['5_year'] = lambda x: (x['Date'] >= evaluation_start_date) & (x['Date'] <= '2024-01-02')
+    eval_filters['1_year'] = lambda x: (x['Date'] >= evaluation_start_date) & (x['Date'] <= '2020-01-02')
+    eval_filters['6_month'] = lambda x: (x['Date'] >= evaluation_start_date) & (x['Date'] <= '2019-07-02')
+    eval_filters['1_month'] = lambda x: (x['Date'] >= evaluation_start_date) & (x['Date'] <= '2019-02-02')
+    eval_filters['5_day'] = lambda x: (x['Date'] >= evaluation_start_date) & (x['Date'] <= '2019-01-06')
 
     params['evaluation_filters'] = eval_filters
     return params

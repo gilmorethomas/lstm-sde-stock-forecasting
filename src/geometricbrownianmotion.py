@@ -16,7 +16,10 @@ class GeometricBrownianMotion(TimeSeriesModel):
         seed:np.random.RandomState,
         test_split_filter=None, 
         train_split_filter=None, 
-        evaluation_filters:list=[]
+        evaluation_filters:list=[],
+        scaler=None,
+        save_html=True,
+        save_png=True
     ):
         super().__init__(data=data, 
             model_hyperparameters=model_hyperparameters, 
@@ -28,6 +31,9 @@ class GeometricBrownianMotion(TimeSeriesModel):
             test_split_filter=test_split_filter,
             train_split_filter=train_split_filter,
             evaluation_filters=evaluation_filters, 
+            scaler=scaler,
+            save_html=save_html,
+            save_png=save_png
             )
         self.model_hyperparameters = model_hyperparameters
 
@@ -76,6 +82,7 @@ class GeometricBrownianMotion(TimeSeriesModel):
                 self.train_params['sigma'][col] = self.model_hyperparameters['sigma']
         self.train_data_fit = self._simulate_gbm_train()
         self.train_data_fit = pd.merge(self.train_data, self.train_data_fit,  on='Days_since_start')
+        super().train()
     
     def _simulate_gbm_train(self):
         """Helper method that simulates GBM for the train data

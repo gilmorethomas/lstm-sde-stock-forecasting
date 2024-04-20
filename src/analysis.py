@@ -8,6 +8,7 @@ import os
 from lstm import LSTM 
 from geometricbrownianmotion import GeometricBrownianMotion
 from numpy.random import RandomState
+from sklearn.preprocessing import MinMaxScaler
 
 class AnalysisManager(): 
     # Create an analysis manager whose job is to manage the analysis objects
@@ -15,7 +16,14 @@ class AnalysisManager():
     # It should also take a raw directory and an output directory
     # Raw directory is where the raw data is stored
     # Output directory is where the output data is stored
-    def __init__(self, raw_dir, output_dir, master_seed = 0, **kwargs): 
+    def __init__(self, 
+        raw_dir, 
+        output_dir,
+        master_seed = 0, 
+        save_png = True, 
+        save_html=True, 
+        overwrite_out_dir=True,
+        **kwargs): 
         """
         Creates the analysis maanger 
         Args:
@@ -25,11 +33,13 @@ class AnalysisManager():
         self.analysis_objects_dict = {}
         self.raw_dir = raw_dir
         # Create a directory called at output_dir/output 
-        self.output_dir = self._override_output_dir(output_dir)
+        self.output_dir = self._override_output_dir(output_dir, overwrite_out_dir=overwrite_out_dir)
         self._random_state_mgr = RandomState(master_seed)
-    def _override_output_dir(self, output_dir):
+        self.save_png = save_png
+        self.save_html = save_html
+    def _override_output_dir(self, output_dir, overwrite_out_dir=True):
         outdir = path.join(output_dir, 'output_v0')
-        if path.exists(outdir):
+        if path.exists(outdir) and overwrite_out_dir:
             # If the output directory exists, roll the output directory to output_v{version_number}, 
             # where version number is the next available version number
 
@@ -41,7 +51,8 @@ class AnalysisManager():
             # Create the new output directory and override outdir
             outdir = path.join(output_dir, f'output_v{version_number}')
         logging.info(f"Creating output directory {outdir}")
-        makedirs(outdir)
+        if not path.exists(outdir):
+            makedirs(outdir)
         return outdir
 
     def set_preprocessing_callback(self, preprocessing_callback):
@@ -66,7 +77,9 @@ class AnalysisManager():
                 y_vars, 
                 path.join(self.output_dir, dataset_name), 
                 preprocessing_callback=self.preprocessing_callback,
-                seed=self._random_state_mgr
+                seed=self._random_state_mgr,
+                save_html=self.save_html,
+                save_png=self.save_png
             )
             self.analysis_objects_dict[dataset_name] = analysis
     
@@ -78,6 +91,7 @@ class AnalysisManager():
         logging.info("Preprocessing datasets")
         for analysis_name, analysis_obj in self.analysis_objects_dict.items(): 
             analysis_obj.preprocess_dataset()
+            
     
     def get_analysis_objs(self):
         """Gets the analysis objects belonging to the analysis manager
@@ -113,7 +127,7 @@ class AnalysisManager():
         raise NotImplementedError("This method is not implemented yet")
             
 class Analysis(): 
-    def __init__(self, dataset_name, dataset_df, x_vars, y_vars, output_directory, seed, preprocessing_callback=None):
+    def __init__(self, dataset_name, dataset_df, x_vars, y_vars, output_directory, seed, preprocessing_callback=None, save_html=True, save_png=True):
          
         self.dataset_name = dataset_name
         self._raw_dataset_df = dataset_df
@@ -121,6 +135,8 @@ class Analysis():
         self.output_directory = output_directory
         self.x_vars = x_vars
         self.y_vars = y_vars
+        self.save_html = save_html
+        self.save_png = save_png
         self._rand_state_mgr = seed
         if not(path.exists(output_directory)):
             logging.info(f"Creating output directory {output_directory}")
@@ -135,6 +151,11 @@ class Analysis():
         logging.info(f"Removing columns {self.dataset_df.columns.difference(self.x_vars + self.y_vars)}")
         self.dataset_df = self.dataset_df[self.x_vars + self.y_vars]
         logging.info(f"Columns remaining {self.dataset_df.columns}")
+        # Normalize data using minmax scaling
+        # self.dataset_df = (self.dataset_df - self.dataset_df.min()) / (self.dataset_df.max() - self.dataset_df.min())
+        self.scaler = Scaler()
+        self.dataset_df = self.scaler.scale_data(self.dataset_df, self.y_vars)
+
 
     def run_analysis(self, run_descriptive=True, run_predictive=True): 
         logging.info(f"Running analysis for {self.dataset_name}")
@@ -205,7 +226,10 @@ class Analysis():
                         seed=self._rand_state_mgr,
                         test_split_filter=model_dict['test_split_filter'],
                         train_split_filter=model_dict['train_split_filter'],
-                        evaluation_filters=model_dict['evaluation_filters'], )
+                        evaluation_filters=model_dict['evaluation_filters'], 
+                        scaler=self.scaler,
+                        save_png=self.save_png,
+                        save_html=self.save_html)
                     self._call_model_funcs(model)
             elif model_type.lower() == 'gbm':
                 logging.info("Creating GBM models")
@@ -221,7 +245,10 @@ class Analysis():
                         seed=self._rand_state_mgr,
                         test_split_filter=model_dict['test_split_filter'],
                         train_split_filter=model_dict['train_split_filter'],
-                        evaluation_filters=model_dict['evaluation_filters'], )
+                        evaluation_filters=model_dict['evaluation_filters'], 
+                        scaler=self.scaler,
+                        save_png=self.save_png,
+                        save_html=self.save_html)
                     self._call_model_funcs(model)
             elif model_type.lower() == 'lstm_sde':
                 logging.info("Creating LSTM SDE models")
@@ -267,6 +294,22 @@ class Analysis():
                 plot_type=plot_type, 
                 output_dir=self.output_dir, 
                 output_name='Stock Market Data', 
-                save_png=True, 
-                save_html=True)
+                save_png=self.save_png, 
+                save_html=self.save_html)
 
+class Scaler():
+    def __init__(self):
+        self.scaler = MinMaxScaler() 
+
+    def scale_data(self, df, vars):
+        # Pull only the columns that are in y vars and are floats
+        cols_to_use = df[vars].select_dtypes('float64').columns.to_list()
+        logging.info(f'Scaling columns {cols_to_use}')
+        df[cols_to_use] = self.scaler.fit_transform(df[cols_to_use]) # may need to do a .reshape(-1, 1... this was in joey's code... does a reshaping)
+        return df
+        
+    def unscale_data(self, df, vars):
+        cols_to_use = df[vars].select_dtypes('float64').columns.to_list()
+        df2 = df.copy(deep=True)
+        df2[cols_to_use] = self.scaler.inverse_transform(df2[cols_to_use])
+        return df2

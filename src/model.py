@@ -3,7 +3,7 @@ import pickle
 import logging
 import pandas as pd 
 import numpy as np
-from plotting import plot_all_x_y_combinations
+from plotting import plot_all_x_y_combinations, plot_multiple_dfs
 
 class Model(): 
     # Define a model class that takes a test train split and model hyperparameters
@@ -25,7 +25,10 @@ class Model():
         seed=np.random.RandomState,
         test_split_filter=None, 
         train_split_filter=None, 
-        evaluation_filters:dict={}, 
+        evaluation_filters:dict={},
+        scaler=None, 
+        save_html=True,
+        save_png=True
     ):
         self.data = data
         self.model_hyperparameters = model_hyperparameters
@@ -42,7 +45,11 @@ class Model():
         self.x_vars = x_vars
         self.y_vars = y_vars
         self._rand_state_mgr = seed
+        self.scaler=scaler
         self.train_data_fit = None
+        self.save_html = save_html
+        self.save_png = save_png
+        
     
     def split_data(self):
         # Split the data into test and train using sklearn.model_selection.train_test_split
@@ -52,12 +59,31 @@ class Model():
         # Set self.test_data equal to the data with the test split filter applied
         self.test_data = self.data[self.test_split_filter]
         # Set self.evaluation_data equal to the data with the evaluation filters applied
-        self.evaluation_data = {k: self.data[v] for k, v in self.evaluation_filters.items()}
-        # self.data[self.evaluation_filters]
+        self.evaluation_data = {k + ' Evaluation Data': self.data[v] for k, v in self.evaluation_filters.items()}
+        self._plot_test_train_split()
+    def _plot_test_train_split(self):
+        # Build a temporary dictionary of all the data splits, including train, test, and eval
+        # This will be used to plot the data
+        all_data = {'train': self.train_data, 'test': self.test_data}
+        all_data.update(self.evaluation_data)
+        # Unscale the data
+        all_data = {k: self.scaler.unscale_data(v, self.y_vars) for k, v in all_data.items()}
+        # Plot the data
+        plot_multiple_dfs(all_data, 
+            title='Train, Test, and Evaluation Data Split',
+            x_cols=self.x_vars, 
+            y_cols=self.y_vars, 
+            plot_type='line', 
+            output_dir=path.join(self.save_dir, 'test_train_split'), 
+            output_name=self.model_name, 
+            save_png=self.save_png, 
+            save_html=self.save_html,
+            add_split_lines=True)
 
     def train(self):
         # train the model
-        raise NotImplementedError("This should be implemented by the child class")
+        self.train_data = self.train_data.copy(deep=True)
+        self.train_data_scaled = self.scaler.unscale_data(self.train_data, self.y_vars)
     
     def test(self):
         # test the model
@@ -92,6 +118,7 @@ class Model():
         if self.train_data_fit is not None:
             y_cols = [col for col in self.train_data_fit.columns if col not in self.x_vars]
             # Plot all x, y combinations
+
         assert all([col in self.train_data_fit.columns for col in self.x_vars]), "All x_vars must be in the train_data_fit"
         for plot_type in plot_types:
             plot_all_x_y_combinations(self.train_data_fit, 
@@ -100,8 +127,9 @@ class Model():
                 plot_type=plot_type, 
                 output_dir=path.join(self.save_dir, 'train_data_fit'), 
                 output_name=self.model_name, 
-                save_png=True, 
-                save_html=True)
+                save_png=self.save_png, 
+                save_html=self.save_html)
+
     def report(self):
         # Report the model's performance
         # This should include the model hyperparameters, the model's performance on the test data, and the model's performance on the evaluation data
