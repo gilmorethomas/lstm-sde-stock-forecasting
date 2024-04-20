@@ -49,6 +49,7 @@ class Model():
         self.train_data_fit = None
         self.save_html = save_html
         self.save_png = save_png
+        self.seed = seed
         
     
     def split_data(self):
@@ -118,7 +119,9 @@ class Model():
         if self.train_data_fit is not None:
             y_cols = [col for col in self.train_data_fit.columns if col not in self.x_vars]
             # Plot all x, y combinations
-
+        else:
+            logging.error('Train Data Fit Cannot be None')
+            return
         assert all([col in self.train_data_fit.columns for col in self.x_vars]), "All x_vars must be in the train_data_fit"
         for plot_type in plot_types:
             plot_all_x_y_combinations(self.train_data_fit, 

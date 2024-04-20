@@ -53,7 +53,8 @@ class GeometricBrownianMotion(TimeSeriesModel):
         stock_prices[0] = test_data[0]  # Set the initial stock price
 
         for i in range(1, num_steps):
-            dW = np.random.normal(0, np.sqrt(dt))  # Generate a random Wiener process increment
+            dW = self.seed.normal(0, np.sqrt(dt))  # Generate a random Wiener process increment
+            #dW = np.random.normal(0, np.sqrt(dt))  # Generate a random Wiener process increment
             drift = mu * stock_prices[i-1] * dt  # Calculate the drift term
             diffusion = sigma * stock_prices[i-1] * dW  # Calculate the diffusion term
             stock_prices[i] = stock_prices[i-1] + drift + diffusion  # Update the stock price
