@@ -155,16 +155,70 @@ class GeometricBrownianMotion(TimeSeriesModel):
         # # volatility
         # sigma = 0.3
         # calc each time step
-        dt = t_years/nsteps
-        # simulation using numpy arrays
-        # Create a matrix of random numbers, using the random number generator from the random state manager
-        St = np.exp(
-            (mu - sigma ** 2 / 2) * dt
-            + sigma * np.sqrt(dt) * self._rand_state_mgr.random((num_sims, nsteps)).T
-        )
-        # include array of 1's
-        St = np.vstack([np.ones(num_sims), St])
-        # multiply through by S0 and return the cumulative product of elements along a given simulation path (axis=0). 
-        St = start * St.cumprod(axis=0)
+        # dt = t_years/nsteps
+        # # simulation using numpy arrays
+        # # Create a matrix of random numbers, using the random number generator from the random state manager
+        # St = np.exp(
+        #     (mu - sigma ** 2 / 2) * dt
+        #     + sigma * np.sqrt(dt) * self._rand_state_mgr.random((num_sims, nsteps)).T
+        # )
+        # # include array of 1's
+        # St = np.vstack([np.ones(num_sims), St])
+        # # multiply through by S0 and return the cumulative product of elements along a given simulation path (axis=0). 
+        # St = start * St.cumprod(axis=0)
+        
+        # Just copying our boi Olaf's peusdo code
+        def euler_maruyama_geometric_brownian_motion(S0, mu, sigma, T, dt, N, Random_Array_input, seed=None):
+            """
+            Simulate geometric Brownian motion using Euler-Maruyama method.
+
+            Parameters:
+                S0 (float): initial value of the process
+                mu (float): expected return
+                sigma (float): volatility
+                T (float): total time to simulate for
+                dt (float): time increment size
+                N (int): number of time steps
+                seed (int, optional): random seed for reproducibility
+
+            Returns:
+                list: time points
+                list: simulated process values
+            """
+            if seed is not None:
+                np.random.seed(seed)
+
+            t = np.linspace(0, T, N+1)
+            W = np.zeros(N+1)
+            S = np.zeros(N+1)
+            S[0] = S0
+
+            for i in range(1, N+1):
+                dW   = (dt**0.5) * Random_Array_input[i-1]
+                S[i] = S[i-1] * (1 + mu*dt + sigma*dW)
+                W[i] = W[i-1] + dW
+
+            return t, S
+        
+        # Just copying our boi Olaf's inputs
+        S0 = 1;
+        mu = 0.001
+        sigma = 0.1
+        T = 1
+        dt = 0.1
+        N = nsteps  # TODO: Our boi Olaf used 5,000 for this and did a 80/20 split
+        Random_Array = np.random.randn(nsteps, num_sims);
+        # NEED TO UPDATE
+        #self._rand_state_mgr.standard_normal((num_sims, nsteps)).T
+        
+        St = np.zeros((nsteps+1, num_sims))
+        
+        for i in range(num_sims):
+            Random_Array_input = Random_Array[:,i]
+            _, S = euler_maruyama_geometric_brownian_motion(S0, mu, sigma, T, dt, N, Random_Array_input)
+            St[:,i] = S
+        
+        
+        
         x = [ t_years*i for i in range(nsteps + 1 ) ]
         return x, St
