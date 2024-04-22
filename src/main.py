@@ -69,7 +69,8 @@ def preprocessing_callback(df):
 
 
 if __name__ == "__main__":
-    logging.getLogger().setLevel(logging.INFO)
+    # OPTIONS ARE INFO, ERROR, and CRITICAL
+    logging.getLogger().setLevel(logging.ERROR)
 
     print("Running main.py")
     # Create an analysis object for each stock

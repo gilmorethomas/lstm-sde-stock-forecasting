@@ -62,7 +62,10 @@ class Model():
         # Set self.evaluation_data equal to the data with the evaluation filters applied
         self.evaluation_data = {k + ' Evaluation Data': self.data[v] for k, v in self.evaluation_filters.items()}
         self._plot_test_train_split()
+
     def _plot_test_train_split(self):
+        """Plots the test train split data
+        """        
         # Build a temporary dictionary of all the data splits, including train, test, and eval
         # This will be used to plot the data
         all_data = {'train': self.train_data, 'test': self.test_data}
@@ -80,12 +83,64 @@ class Model():
             save_png=self.save_png, 
             save_html=self.save_html,
             add_split_lines=True)
-
+        
     def train(self):
         # train the model
         self.train_data = self.train_data.copy(deep=True)
         self.train_data_scaled = self.scaler.unscale_data(self.train_data, self.y_vars)
-    
+        # Unscale model fit data. Since the model data columns will have y_col_{model_name} we need to check for that
+        self.train_data_fit_scaled = self.train_data_fit.copy(deep=True)
+        model_cols_to_scale = []
+        for col in self.train_data_fit_scaled.columns:
+            if col in self.x_vars:
+                continue
+            model_cols_to_scale.append(col)
+
+        # Calculate the RMSE
+        import pdb; pdb.set_trace()
+
+        #for seed_num in range(self.model_hyperparameters['num_seeds']):
+            
+            # Prepend train data with np.nan equal to the number of time steps in hyperparameters
+            #nan_array = np.array([[np.nan] * self.model_hyperparameters['time_steps']]).T
+            #train_data_fit = np.concatenate((nan_array, train_data_fit), axis=0)
+            #model_rmse{f'{self.model_name}_{seed_num}'} = math.sqrt(mean_squared_error(y_train, train_data_fit))
+            # Add this data to the train fit array
+            #self.train_data_fit[f'{self.y_vars[0]}_{self.model_name}_{seed_num}'] = train_data_fit
+
+        #self.train_rmse = model_rmse
+        import pdb; pdb.set_trace()
+        # Unscale the data
+        self.train_data_fit_scaled[model_cols_to_scale] = self.scaler.unscale_data(self.train_data_fit[model_cols_to_scale], model_cols_to_scale)
+        self._plot_train_data()
+
+    def _plot_train_data(self):
+        # Plots the train data fit for each model along with the train data
+        # This should be used to validate that the model is fitting the data correctly
+        #y_cols=[col for col in self.train_data_fit_scaled if col not in self.x_vars]
+        # Build a dictionary of the columns that are not x_vars
+        keys = [col for col in self.train_data_fit_scaled.columns if col not in self.x_vars]
+        # Add 
+        all_data = {key: self.train_data_fit_scaled[self.x_vars + [key]] for key in keys}
+        # Rename the columns with {y_var}_{model_name}_{seed} to be {y_var}. This is so we can pass the 
+        # same column to the plotting function across multiple dataframes
+        for key in all_data.keys():
+            cols = {key: col.split('_')[0] for col in all_data[key].columns if col not in self.x_vars}
+            all_data[key] = all_data[key].rename(columns = cols)
+
+        # Plot the data
+        plot_multiple_dfs(all_data, 
+            title='Model Train Data',
+            x_cols=self.x_vars, 
+            y_cols=self.y_vars, 
+            plot_type='line', 
+            output_dir=path.join(self.save_dir, 'train_data', 'all_iterations'),
+            output_name=self.model_name + '_train_data_all_models', 
+            save_png=self.save_png, 
+            save_html=self.save_html,
+            add_split_lines=False)
+
+
     def test(self):
         # test the model
         raise NotImplementedError("This should be implemented by the child class")
@@ -123,15 +178,18 @@ class Model():
             logging.error('Train Data Fit Cannot be None')
             return
         assert all([col in self.train_data_fit.columns for col in self.x_vars]), "All x_vars must be in the train_data_fit"
+        # Plot each individual model
         for plot_type in plot_types:
             plot_all_x_y_combinations(self.train_data_fit, 
                 x_cols=self.x_vars, 
                 y_cols=y_cols, 
                 plot_type=plot_type, 
-                output_dir=path.join(self.save_dir, 'train_data_fit'), 
+                output_dir=path.join(self.save_dir, 'train_data', 'single_iterations'), 
                 output_name=self.model_name, 
                 save_png=self.save_png, 
                 save_html=self.save_html)
+        
+        # Overlay all the models on the same plot
 
     def report(self):
         # Report the model's performance

@@ -86,7 +86,7 @@ def plot_multiple_dfs(trace_name_df_dict, title, x_cols, y_cols, plot_type, outp
         min_y = min([df[y_col].min() for df in trace_name_df_dict.values()])
         num_traces = 0
         for trace_name, df in trace_name_df_dict.items():
-            logging.info(f"Plotting {x_col} vs {y_col} for {trace_name}")
+            #logging.info(f"Plotting {x_col} vs {y_col} for {trace_name}")
             if x_col == y_col:
                 continue
             trace_name = _make_title_replacements(trace_name)

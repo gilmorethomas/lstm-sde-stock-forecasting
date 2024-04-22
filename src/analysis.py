@@ -9,6 +9,7 @@ from lstm import LSTM
 from geometricbrownianmotion import GeometricBrownianMotion
 from numpy.random import RandomState
 from sklearn.preprocessing import MinMaxScaler
+import tensorflow as tf
 
 class AnalysisManager(): 
     # Create an analysis manager whose job is to manage the analysis objects
@@ -35,6 +36,7 @@ class AnalysisManager():
         # Create a directory called at output_dir/output 
         self.output_dir = self._override_output_dir(output_dir, overwrite_out_dir=overwrite_out_dir)
         self._random_state_mgr = RandomState(master_seed)
+        tf.random.set_seed(master_seed)
         self.save_png = save_png
         self.save_html = save_html
     def _override_output_dir(self, output_dir, overwrite_out_dir=True):

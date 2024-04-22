@@ -1,5 +1,7 @@
 import logging 
 import numpy as np
+from sklearn.metrics import mean_squared_error
+import math
 from model import Model
 from tensorflow.keras.layers import LSTM as keras_LSTM
 from tensorflow.keras.models import Sequential
@@ -11,7 +13,8 @@ class LSTM(TimeSeriesModel):
     # Define an LSTM class that inherits from the model class, implemented using pytorch as similar to this link: 
     # https://www.datacamp.com/tutorial/lstm-python-stock-market
     # https://www.tensorflow.org/tutorials/structured_data/time_series
-
+    # https://colah.github.io/posts/2015-08-Understanding-LSTMs/
+    # https://towardsdatascience.com/illustrated-guide-to-lstms-and-gru-s-a-step-by-step-explanation-44e9eb85bf21
     def __init__(self, 
         data, 
         units, 
@@ -48,6 +51,70 @@ class LSTM(TimeSeriesModel):
         #self.model.add(keras_LSTM(units, **model_hyperparameters))
         #self.model.add(Dense(1))  # Output layer
 
+    def train(self):
+        """Trains the model
+        """        
+        assert len(self.y_vars) == 1, 'Only one y_var is supported for LSTM models'
+        # Train the model using the test train split
+        self._set_hyperparameter_defaults()
+        model_rmse = {}
+        logging.info("Need to implement")
+        # Check that there are no gaps in x_vars
+        for column in self.x_vars:
+            if self.train_data[column].dtype == int: 
+                # check for gaps in the data
+                if not all(np.diff(self.train_data[column]) == 1):
+                    logging.error(f"Column {column} has gaps in the data")
+                    return
+        x_train, y_train = self._create_dataset(data=np.array(self.train_data[self.y_vars]), 
+            time_steps=self.model_hyperparameters['time_steps'])
+        
+        self.train_data_fit = self.train_data.copy(deep=True)
+        
+        # Train for each seed
+        for seed_num in range(self.model_hyperparameters['num_seeds']):
+            seed = self.seed.random()
+            train_data_fit = self._train_one_seed(x_train, y_train, seed)
+            
+            # Prepend train data with np.nan equal to the number of time steps in hyperparameters
+            nan_array = np.array([[np.nan] * self.model_hyperparameters['time_steps']]).T
+            train_data_fit = np.concatenate((nan_array, train_data_fit), axis=0)
+            # Add this data to the train fit array
+            self.train_data_fit[f'{self.y_vars[0]}_{self.model_name}_{seed_num}'] = train_data_fit
+        import pdb; pdb.set_trace()
+        super().train()
+    def _train_one_seed(self, x_train, y_train, seed):
+        """Trains the model on one seed of the data
+
+        Args:
+            x_train (_type_): _description_
+            y_train (_type_): _description_
+        """        
+        model = Sequential()
+
+        model.add(keras_LSTM(self.model_hyperparameters['hidden_nodes'][0], return_sequences=True, input_shape=(x_train.shape[1], 1)))
+        
+        # Build other layers other than the default input
+        for i in range(self.model_hyperparameters['num_layers'] - 2):
+            assert len(self.model_hyperparameters['hidden_nodes']) > i, 'Not enough hidden nodes specified for the number of layers'
+            model.add(keras_LSTM(self.model_hyperparameters['hidden_nodes'][i - 1], return_sequences=True))
+        model.add(keras_LSTM(self.model_hyperparameters['hidden_nodes'][0]))
+        
+        # Add output layers
+        model.add(Dense(self.model_hyperparameters['output_dimension']))
+        model.compile(optimizer=self.model_hyperparameters['optimizer'], 
+            loss=self.model_hyperparameters['loss'])
+        # Train the model
+        model.summary()
+
+        model.fit(x_train, 
+            y_train, 
+            epochs=self.model_hyperparameters['epochs'], 
+            batch_size=self.model_hyperparameters['batch_size'], 
+            verbose=self.model_hyperparameters['verbose'])
+        
+        train_predict = model.predict(x_train)
+        return train_predict 
 
     def test(self):
         logging.info("Test not implemented yet")
@@ -59,7 +126,7 @@ class LSTM(TimeSeriesModel):
    #     # Train the model using the test train split    
 
     def predict(self):
-
+        return
         logging.info("Predict not implemented yet")
         # Predict the model
         X_test = np.array(self.test_data[self.y_vars])
@@ -131,63 +198,8 @@ class LSTM(TimeSeriesModel):
         if 'num_seeds' not in self.model_hyperparameters:
             logging.info('No num_seeds specified in model hyperparameters, using default of 1')
             self.model_hyperparameters['num_seeds'] = 2
-    def train(self):
-        assert len(self.y_vars) == 1, 'Only one y_var is supported for LSTM models'
-        # Train the model using the test train split
-        self._set_hyperparameter_defaults()
-        logging.info("Need to implement")
-        # assert that there are no gaps in x_vars
-        for column in self.x_vars:
-            if self.train_data[column].dtype == int: 
-                # check for gaps in the data
-                if not all(np.diff(self.train_data[column]) == 1):
-                    logging.error(f"Column {column} has gaps in the data")
-                    return
-        x_train, y_train = self._create_dataset(data=np.array(self.train_data[self.y_vars]), 
-            time_steps=self.model_hyperparameters['time_steps'])
-        
-        self.train_data_fit = self.train_data.copy(deep=True)
-        
-        for seed_num in range(self.model_hyperparameters['num_seeds']):
-            seed = self.seed.random()
-            train_data_fit = self._train_one_seed(x_train, y_train, seed)
-            # Prepend train data with np.nan equal to the number of time steps in hyperparameters
-            nan_array = np.array([[np.nan] * self.model_hyperparameters['time_steps']]).T
-            train_data_fit = np.concatenate((nan_array, train_data_fit), axis=0)
-            # Add this data to the train fit array
-            self.train_data_fit[f'{self.y_vars[0]}_{self.model_name}_{seed_num}'] = train_data_fit
 
-    def _train_one_seed(self, x_train, y_train, seed):
-        """Trains the model on one seed of the data
 
-        Args:
-            x_train (_type_): _description_
-            y_train (_type_): _description_
-        """        
-        model = Sequential()
-        # https://colah.github.io/posts/2015-08-Understanding-LSTMs/
-        model.add(keras_LSTM(self.model_hyperparameters['hidden_nodes'][0], return_sequences=True, input_shape=(x_train.shape[1], 1)))
-        # Build other layers other than the default
-        for i in range(self.model_hyperparameters['num_layers'] - 2):
-            assert len(self.model_hyperparameters['hidden_nodes']) > i, 'Not enough hidden nodes specified for the number of layers'
-            model.add(keras_LSTM(self.model_hyperparameters['hidden_nodes'][i - 1], return_sequences=True))
-        model.add(keras_LSTM(self.model_hyperparameters['hidden_nodes'][0]))
-        
-        # Add output layer
-        model.add(Dense(self.model_hyperparameters['output_dimension']))
-        model.compile(optimizer=self.model_hyperparameters['optimizer'], 
-            loss=self.model_hyperparameters['loss'])
-        # Train the model
-        model.summary()
-
-        model.fit(x_train, 
-            y_train, 
-            epochs=self.model_hyperparameters['epochs'], 
-            batch_size=self.model_hyperparameters['batch_size'], 
-            verbose=self.model_hyperparameters['verbose'])
-        
-        train_predict = model.predict(x_train)
-        return train_predict 
         # Merge the train data fit with the train data 
         # # TODO (replace w/ model hyperparameters)
         # learning_rate = 0.001
