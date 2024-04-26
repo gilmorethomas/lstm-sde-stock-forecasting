@@ -169,7 +169,6 @@ class GeometricBrownianMotion(TimeSeriesModel):
                 sigma=self.train_params['sigma'][col],
                 start=self.train_data[col].iloc[0],
                 dt=self.model_hyperparameters['dt'])
-            import pdb; pdb.set_trace()
             # gbm_data = self.simulate_gbm_3(daily_data = self.train_data[col], start_price=self.train_data[col].iloc[0] ,T = self.train_data[col].shape[0], dt = 1, scen_size=num_sims)
             #import pdb; pdb.set_trace()
             
@@ -177,6 +176,14 @@ class GeometricBrownianMotion(TimeSeriesModel):
             for i in range(num_sims):
                 train_data_fit[f'{col}_GBM_{i}'] = gbm_data[:,i]
                 scale_cols += [f'{col}_GBM_{i}']
+            # Take the mean of the simulations and assign it to the train_data_fit dataframe
+            train_data_fit[f'{col}_GBM_mean'] = gbm_data.mean(axis=1)
+            # Take the median of the simulations and assign it to the train_data_fit dataframe
+            train_data_fit[f'{col}_GBM_median'] = np.median(gbm_data, axis=1)
+            # Take the max of the simulations and assign it to the train_data_fit dataframe
+            train_data_fit[f'{col}_GBM_max'] = gbm_data.max(axis=1)
+            # Take the min of the simulations and assign it to the train_data_fit dataframe
+            train_data_fit[f'{col}_GBM_min'] = gbm_data.min(axis=1)
         # scale back the data before assigning it to the train_data_fit dataframe. This is because the scaler is going 
         return train_data_fit
 
