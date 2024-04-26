@@ -34,13 +34,13 @@ def preprocessing_callback(df):
     # Preprocess the dataset
     # Remove any missing values
     df = df.dropna()
-    for col in df.columns:
-        if df[col].dtype == 'object':
-            logging.info(f'Skipping normalization for {col=}, as dtype is object') 
-            continue
-        else:
-    # Normalize the dataset, giving a max of 1 and min of 0
-            df[col] = (df[col] - df[col].min()) / (df[col].max() - df[col].min())
+    # for col in df.columns:
+    #     if df[col].dtype == 'object':
+    #         logging.info(f'Skipping normalization for {col=}, as dtype is object') 
+    #         continue
+    #     else:
+    # # Normalize the dataset, giving a max of 1 and min of 0
+    #         df[col] = (df[col] - df[col].min()) / (df[col].max() - df[col].min())
     # Where there is not an entry for a given day, use the data from the previous day
     # convert date to datetime
     df['Date_string'] = df['Date']
@@ -69,6 +69,8 @@ def preprocessing_callback(df):
 
 
 if __name__ == "__main__":
+    # OPTIONS ARE INFO, ERROR, and CRITICAL. 
+    # INFO will print out a ton of stuff, but is useful for debugging
     logging.getLogger().setLevel(logging.INFO)
 
     print("Running main.py")
@@ -92,7 +94,13 @@ if __name__ == "__main__":
     kwargs = {'plotting' : 
                   {'x_vars' : 'Date', 
                    'y_vars' : None}}
-    analysis = AnalysisManager(raw_dir, output_dir, x_vars_to_plot = ['Date'], y_vars_to_plot=None, plotting = {'x_vars': 'Date', 'y_vars': None}, foo='bar')
+    analysis = AnalysisManager(raw_dir, 
+        output_dir, 
+        x_vars_to_plot = ['Date'], 
+        y_vars_to_plot=None, 
+        save_png=False,
+        save_html=True,
+        plotting = {'x_vars': 'Date', 'y_vars': None}, foo='bar', overwrite_out_dir=False)
     analysis.set_preprocessing_callback(preprocessing_callback)
     # Add the analysis objects to the analysis manager 
     analysis.add_analysis_objs(analysis_dict=stock_df_dict, x_vars=['Date', 'Days_since_start'], y_vars=['Close'])

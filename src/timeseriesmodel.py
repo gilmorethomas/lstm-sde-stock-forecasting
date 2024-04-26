@@ -18,7 +18,9 @@ class TimeSeriesModel(Model):
         seed:np.random.RandomState,
         test_split_filter=None, 
         train_split_filter=None, 
-        evaluation_filters:dict={}, 
+        evaluation_filters:dict={},
+        save_html=True,
+        save_png=True
     ):
         super().__init__(data=data, 
             model_hyperparameters=model_hyperparameters, 
@@ -30,6 +32,8 @@ class TimeSeriesModel(Model):
             test_split_filter=test_split_filter,
             train_split_filter=train_split_filter,
             evaluation_filters=evaluation_filters, 
+            save_html=save_html,
+            save_png=save_png
             )
         logging.info("Checking that required variables for time series models are present")
         assert 'Date' in x_vars and 'Date' in data.columns, "Date must be in x_vars and data.columns"
