@@ -69,8 +69,9 @@ def preprocessing_callback(df):
 
 
 if __name__ == "__main__":
-    # OPTIONS ARE INFO, ERROR, and CRITICAL
-    logging.getLogger().setLevel(logging.ERROR)
+    # OPTIONS ARE INFO, ERROR, and CRITICAL. 
+    # INFO will print out a ton of stuff, but is useful for debugging
+    logging.getLogger().setLevel(logging.INFO)
 
     print("Running main.py")
     # Create an analysis object for each stock
@@ -106,7 +107,7 @@ if __name__ == "__main__":
     
     analysis.preprocess_datasets()
     #analysis.validate_datasets()
-    models_dict = create_models_dict(gbm=False, lstm=True, lstm_sde=False)
+    models_dict = create_models_dict(gbm=True, lstm=False, lstm_sde=False)
     analysis.set_models_for_analysis_objs(models_dict=models_dict)
     analysis.run_analysis(run_descriptive=False, run_predictive=True)
     # Print the stock names

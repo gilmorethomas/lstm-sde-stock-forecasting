@@ -1,7 +1,13 @@
-
-def create_test_train_split_params(start_date_train='2009-01-01', 
-    start_date_test='2017-01-02',
-    evaluation_start_date='2019-01-02',):
+from dateutil.relativedelta import relativedelta
+from pandas import to_datetime
+def create_test_train_split_params(
+    start_date_train='2010-01-01', # FOR TESTING 
+    start_date_test='2020-10-31', # FOR TESTING 
+    evaluation_start_date='2020-12-31' # FOR TESTING
+    #start_date_train='2009-01-01', # USE THIS, ABOVE IS FOR TESTING 
+    #start_date_test='2017-01-02', # USE THIS, ABOVE IS FOR TESTING 
+    #evaluation_start_date='2019-01-01' # USE THIS, ABOVE IS FOR TESTING 
+    ,):
     """Helper method to create the test split parameters for all models
 
     Args:
@@ -13,14 +19,15 @@ def create_test_train_split_params(start_date_train='2009-01-01',
     """    
     params = {}
     params['train_split_filter'] =  lambda x: (x['Date'] >= start_date_train) &  (x['Date'] < start_date_test)
-    params['test_split_filter']  =  lambda x: (x['Date'] >= start_date_test) & (x['Date'] <= '2019-01-01')
+    params['test_split_filter']  =  lambda x: (x['Date'] >= start_date_test) & (x['Date'] <= evaluation_start_date)
     # Create a dictionary of evaluation filters. The keys are the evaluation filter names, and the values are the lambda functions
     eval_filters = {}
-    eval_filters['5_year'] = lambda x: (x['Date'] >= evaluation_start_date) & (x['Date'] <= '2024-01-02')
-    eval_filters['1_year'] = lambda x: (x['Date'] >= evaluation_start_date) & (x['Date'] <= '2020-01-02')
-    eval_filters['6_month'] = lambda x: (x['Date'] >= evaluation_start_date) & (x['Date'] <= '2019-07-02')
-    eval_filters['1_month'] = lambda x: (x['Date'] >= evaluation_start_date) & (x['Date'] <= '2019-02-02')
-    eval_filters['5_day'] = lambda x: (x['Date'] >= evaluation_start_date) & (x['Date'] <= '2019-01-06')
+
+    eval_filters['5_year'] = lambda x: (x['Date'] >= evaluation_start_date) & (x['Date']    <= to_datetime(evaluation_start_date) + relativedelta(years=5))
+    eval_filters['1_year'] = lambda x: (x['Date'] >= evaluation_start_date) & (x['Date']    <= to_datetime(evaluation_start_date) + relativedelta(years=1))
+    eval_filters['6_month'] = lambda x: (x['Date'] >= evaluation_start_date) & (x['Date']   <= to_datetime(evaluation_start_date) + relativedelta(months=6))
+    eval_filters['1_month'] = lambda x: (x['Date'] >= evaluation_start_date) & (x['Date']   <= to_datetime(evaluation_start_date) + relativedelta(months=1))
+    eval_filters['5_day'] = lambda x: (x['Date'] >= evaluation_start_date) & (x['Date']     <= to_datetime(evaluation_start_date) + relativedelta(days=5))
 
     params['evaluation_filters'] = eval_filters
     return params
@@ -40,40 +47,62 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
     models_dict = {}
     if gbm: 
         models_dict["GBM"] = {
-            'gbm_calculated' : {
+            'gbm_calculated_10_days' : {
                 'model_hyperparameters': {
                     'calculate_mu' : True, 
                     'calculate_sigma': True,
+                    'window_size': None,
+                    'dt' : 1, # day
                     'num_sims' : 5
-                }
+                },
+            },
+
+            'gbm_calculated_20_days' : {
+                'model_hyperparameters': {
+                    'calculate_mu' : True, 
+                    'calculate_sigma': True,
+                    'window_size': 20,
+                    'dt' : 1, # day 
+                    'num_sims' : 5
+                },
+            },
+
+            'gbm_calculated_50_days' : {
+                'model_hyperparameters': {
+                    'calculate_mu' : True, 
+                    'calculate_sigma': True,
+                    'window_size': 50,
+                    'dt' : 1,
+                    'num_sims' : 5
+                },
             }  ,
-            'GBM Steady Large Increase' : {
-                'model_hyperparameters': {
-                    'calculate_mu' : False, 
-                    'calculate_sigma': False, 
-                    'mu': 0.0001, 
-                    'sigma': 0.1,
-                    'num_sims' : 5
-                },
-            },
-            'GBM Unsteady 1' : {
-                'model_hyperparameters': {
-                    'calculate_mu' : False, 
-                    'calculate_sigma': False, 
-                    'mu': 0.1, 
-                    'sigma': 0.05,
-                    'num_sims' : 5
-                },
-            },
-            'GBM Unsteady 2' : {
-                'model_hyperparameters': {
-                    'calculate_mu' : False, 
-                    'calculate_sigma': False, 
-                    'mu': 0.1, 
-                    'sigma': 0.0,
-                    'num_sims' : 5
-                },
-            }
+            # 'GBM Steady Large Increase' : {
+            #     'model_hyperparameters': {
+            #         'calculate_mu' : False, 
+            #         'calculate_sigma': False, 
+            #         'mu': 0.0001, 
+            #         'sigma': 0.1,
+            #         'num_sims' : 5
+            #     },
+            # },
+            # 'GBM Unsteady 1' : {
+            #     'model_hyperparameters': {
+            #         'calculate_mu' : False, 
+            #         'calculate_sigma': False, 
+            #         'mu': 0.1, 
+            #         'sigma': 0.05,
+            #         'num_sims' : 5
+            #     },
+            # },
+            # 'GBM Unsteady 2' : {
+            #     'model_hyperparameters': {
+            #         'calculate_mu' : False, 
+            #         'calculate_sigma': False, 
+            #         'mu': 0.1, 
+            #         'sigma': 0.0,
+            #         'num_sims' : 5
+            #     },
+            # }
         }
     if lstm_sde:
         models_dict["LSTM_SDE"] = None 
