@@ -2,10 +2,11 @@ import logging
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 
 class Scaler:
-    def __init__(self):
+    def __init__(self, default_scaler_type = 'MinMaxScaler', log_scaler_updates=False):
         self._scalers = {}
         self._valid_scaler_types = ['MinMaxScaler', 'StandardScaler']
-        self._default_scaler_type = 'MinMaxScaler'
+        self._default_scaler_type = default_scaler_type
+        self._log_scaler_updates = log_scaler_updates
     def scaler_names(self):
         """Returns the names of the scalers
 
@@ -73,6 +74,12 @@ class Scaler:
                 scaler = MinMaxScaler()
             scaler.fit(df[[var]])
             self._scalers[df_name][var] = scaler
+        self._log_scaler_update()
+    def _log_scaler_update(self):
+        """Logs the state of the scaler object
+        """
+        if self._log_scaler_updates:
+            logging.info(f'####### Scaler Object State Updated #######\n {self.__str__()}')
 
     def transform(self, df, df_name, columns=None):
         """Transforms the dataframe using the scaler. If a scaler with the given name does not exist, one will be created
@@ -99,8 +106,9 @@ class Scaler:
         df2 = df.copy(deep=True)
         for var in columns:
             df2[var] = self._scalers[df_name][var].transform(df2[[var]])
+        # Log the scaler object when created for debugging purposes
+        self._log_scaler_update()
         return df2
-
 
     def inverse_transform(self, df, df_name, columns=None):
         """Inverse transforms the dataframe using the scaler
@@ -126,4 +134,19 @@ class Scaler:
         df2 = df.copy(deep=True)
         for var in columns:
             df2[var] = self._scalers[df_name][var].inverse_transform(df2[[var]])
+        self._log_scaler_update()
         return df2
+
+    def __str__(self):
+        ret = "########## Scaler Object ##########\n"
+        for key in self._scalers.keys():
+            ret += f"Scaler for {key}\n"
+            # Print metadata about the scaler, including min, max, and type of scaler
+            for var in self._scalers[key].keys():
+                ret += f"\tVar: {var}\n"
+                ret += f"\t\tScaler Type: {self._scalers[key][var]}\n"
+                ret += f"\t\tMin: {self._scalers[key][var].data_min_}\n"
+                ret += f"\t\tMax: {self._scalers[key][var].data_max_}\n"
+        ret += "########## End Scaler Object ##########\n"
+
+        return ret 
