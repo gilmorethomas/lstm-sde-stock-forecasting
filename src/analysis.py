@@ -8,7 +8,6 @@ import os
 from lstm import LSTM 
 from geometricbrownianmotion import GeometricBrownianMotion
 from numpy.random import RandomState
-from sklearn.preprocessing import MinMaxScaler
 import tensorflow as tf
 
 class AnalysisManager(): 
@@ -155,8 +154,6 @@ class Analysis():
         logging.info(f"Columns remaining {self.dataset_df.columns}")
         # Normalize data using minmax scaling
         # self.dataset_df = (self.dataset_df - self.dataset_df.min()) / (self.dataset_df.max() - self.dataset_df.min())
-        self.scaler = Scaler()
-        self.dataset_df = self.scaler.scale_data(self.dataset_df, self.y_vars)
 
 
     def run_analysis(self, run_descriptive=True, run_predictive=True): 
@@ -229,7 +226,6 @@ class Analysis():
                         test_split_filter=model_dict['test_split_filter'],
                         train_split_filter=model_dict['train_split_filter'],
                         evaluation_filters=model_dict['evaluation_filters'], 
-                        scaler=self.scaler,
                         save_png=self.save_png,
                         save_html=self.save_html)
                     self._call_model_funcs(model)
@@ -248,7 +244,6 @@ class Analysis():
                         test_split_filter=model_dict['test_split_filter'],
                         train_split_filter=model_dict['train_split_filter'],
                         evaluation_filters=model_dict['evaluation_filters'], 
-                        scaler=self.scaler,
                         save_png=self.save_png,
                         save_html=self.save_html)
                     self._call_model_funcs(model)
@@ -298,20 +293,3 @@ class Analysis():
                 output_name='Stock Market Data', 
                 save_png=self.save_png, 
                 save_html=self.save_html)
-
-class Scaler():
-    def __init__(self):
-        self.scaler = MinMaxScaler() 
-
-    def scale_data(self, df, vars):
-        # Pull only the columns that are in y vars and are floats
-        cols_to_use = df[vars].select_dtypes('float64').columns.to_list()
-        logging.info(f'Scaling columns {cols_to_use}')
-        df[cols_to_use] = self.scaler.fit_transform(df[cols_to_use]) # may need to do a .reshape(-1, 1... this was in joey's code... does a reshaping)
-        return df
-        
-    def unscale_data(self, df, vars):
-        cols_to_use = df[vars].select_dtypes('float64').columns.to_list()
-        df2 = df.copy(deep=True)
-        df2[cols_to_use] = self.scaler.inverse_transform(df2[cols_to_use])
-        return df2

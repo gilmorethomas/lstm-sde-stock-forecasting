@@ -27,7 +27,6 @@ class LSTM(TimeSeriesModel):
         test_split_filter=None, 
         train_split_filter=None, 
         evaluation_filters:list=[],
-        scaler=None,
         save_html=True,
         save_png=True
     ):

@@ -4,6 +4,7 @@ import logging
 import pandas as pd 
 import numpy as np
 from plotting import plot_all_x_y_combinations, plot_multiple_dfs
+from scaler import Scaler
 
 class Model(): 
     # Define a model class that takes a test train split and model hyperparameters
@@ -26,7 +27,6 @@ class Model():
         test_split_filter=None, 
         train_split_filter=None, 
         evaluation_filters:dict={},
-        scaler=None, 
         save_html=True,
         save_png=True
     ):
@@ -45,22 +45,41 @@ class Model():
         self.x_vars = x_vars
         self.y_vars = y_vars
         self._rand_state_mgr = seed
-        self.scaler=scaler
         self.train_data_fit = None
         self.save_html = save_html
         self.save_png = save_png
         self.seed = seed
-        
+        self.scaler = Scaler()
+
+        # Save scaled and unscaled data
+        # Add the data to the scaler
+        self.scaler.fit(df=self.data, df_name='all_data', scaler_type='MinMaxScaler')
+        # by default the data is scaled
+        import pdb; pdb.set_trace()
+        self.data = self.scaler.transform(df=self.data, df_name='all_data', columns = self.y_vars)
+
+        #self.data_scaled = self.scaler.transform(df=self.data, df_name='all_data', columns = self.y_vars)
+
     
     def split_data(self):
-        # Split the data into test and train using sklearn.model_selection.train_test_split
         # Perform test, train, evaluation split using the filters in model hyperparameters. Us
         # Set self.train_data equal to the data with the train split filter applied
-        self.train_data = self.data[self.train_split_filter]
+        data_unscaled = self.scaler.inverse_transform(df=self.data, df_name='all_data', columns=self.y_vars)                
+
+        # Split the data into test and train using filters
+
+        train_data_unscaled = data_unscaled[self.train_split_filter]
+        
         # Set self.test_data equal to the data with the test split filter applied
-        self.test_data = self.data[self.test_split_filter]
+        test_data_unscaled = data_unscaled[self.test_split_filter]
         # Set self.evaluation_data equal to the data with the evaluation filters applied
-        self.evaluation_data = {k + ' Evaluation Data': self.data[v] for k, v in self.evaluation_filters.items()}
+        evaluation_data_unscaled = {k + ' Evaluation Data': data_unscaled[v] for k, v in self.evaluation_filters.items()}
+        # Add the data to the scaler. First need to unscale the data 
+        self.train_data = self.scaler.transform(df=train_data_unscaled, df_name='train_data', columns=self.y_vars)
+        self.test_data = self.scaler.transform(df=test_data_unscaled, df_name='test_data', columns=self.y_vars)
+        self.evaluation_data = {k: self.scaler.transform(df=v, df_name=k, columns=self.y_vars) for k, v in evaluation_data_unscaled.items()}
+        
+        # Plot the test train split data 
         self._plot_test_train_split()
 
     def _plot_test_train_split(self):
@@ -70,8 +89,9 @@ class Model():
         # This will be used to plot the data
         all_data = {'train': self.train_data, 'test': self.test_data}
         all_data.update(self.evaluation_data)
+        import pdb; pdb.set_trace()
         # Unscale the data
-        all_data = {k: self.scaler.unscale_data(v, self.y_vars) for k, v in all_data.items()}
+        #all_data = {k: self.scaler.inverse_transform(df_name =k, df=v, columns=self.y_vars) for k, v in all_data.items()}
         # Plot the data
         plot_multiple_dfs(all_data, 
             title='Train, Test, and Evaluation Data Split',
@@ -83,11 +103,21 @@ class Model():
             save_png=self.save_png, 
             save_html=self.save_html,
             add_split_lines=True)
-        
+    def _train_starting_message(self):
+        # Print a couple line separator of special characters to make the log more readable and the model name
+        [logging.info(''.join(['-'] * 50)) for _ in range(2)]
+        logging.info(f"Training {self.model_name} with hyperparameters {self.model_hyperparameters}")
+
+    def _print_train_end_message(self):
+        # Print a couple line separator of special characters to make the log more readable and the model name
+        logging.info(f"Training {self.model_name} complete")
+        [logging.info(''.join(['-'] * 50)) for _ in range(2)]
+
     def train(self):
         # train the model
+        import pdb; pdb.set_trace()
         self.train_data = self.train_data.copy(deep=True)
-        self.train_data_scaled = self.scaler.unscale_data(self.train_data, self.y_vars)
+        self.train_data_scaled = self.scaler.inverse_transform(df=self.train_data, df_name='train_data', columns=self.y_vars)
         # Unscale model fit data. Since the model data columns will have y_col_{model_name} we need to check for that
         self.train_data_fit_scaled = self.train_data_fit.copy(deep=True)
         model_cols_to_scale = []
@@ -97,7 +127,7 @@ class Model():
             model_cols_to_scale.append(col)
 
         # Calculate the RMSE
-        import pdb; pdb.set_trace()
+        #import pdb; pdb.set_trace()
 
         #for seed_num in range(self.model_hyperparameters['num_seeds']):
             
@@ -109,16 +139,18 @@ class Model():
             #self.train_data_fit[f'{self.y_vars[0]}_{self.model_name}_{seed_num}'] = train_data_fit
 
         #self.train_rmse = model_rmse
-        import pdb; pdb.set_trace()
+        #import pdb; pdb.set_trace()
         # Unscale the data
+        #import pdb; pdb.set_trace()
         self.train_data_fit_scaled[model_cols_to_scale] = self.scaler.unscale_data(self.train_data_fit[model_cols_to_scale], model_cols_to_scale)
         self._plot_train_data()
-
+        self._print_train_end_message()
     def _plot_train_data(self):
         # Plots the train data fit for each model along with the train data
         # This should be used to validate that the model is fitting the data correctly
         #y_cols=[col for col in self.train_data_fit_scaled if col not in self.x_vars]
         # Build a dictionary of the columns that are not x_vars
+        logging.info('Plotting train data')
         keys = [col for col in self.train_data_fit_scaled.columns if col not in self.x_vars]
         # Add 
         all_data = {key: self.train_data_fit_scaled[self.x_vars + [key]] for key in keys}
