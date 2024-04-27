@@ -1,5 +1,6 @@
 import logging 
 import numpy as np
+import pandas as pd
 from sklearn.metrics import mean_squared_error
 import math
 from model import Model
@@ -70,10 +71,23 @@ class LSTM(TimeSeriesModel):
                     logging.error(f"Column {column} has gaps in the data")
                     return
         train_data_scaled = self.train_data.copy(deep=True)
+        train_data = self.train_data.copy(deep=True)
         # Scale the data
         train_data_scaled = self.scaler.transform(df=train_data_scaled, df_name = 'train_data', columns=self.y_vars) #.reshape(-1, 1)
         for y_var in self.y_vars:
-            self._train_one_y_var(train_data_scaled[[y_var]], y_var)
+            y_trained = self._train_one_y_var(train_data_scaled[[y_var] + self.x_vars], y_var)
+            train_data_scaled = pd.merge(train_data_scaled, y_trained,  on='Days_since_start')
+
+            this_scaler = self.scaler._scalers['train_data']['data'][y_var]['scaler']
+            # Unscale the data
+            all_resps = [y_var] + self.model_responses['raw'] 
+            train_data[all_resps] = this_scaler.inverse_transform(y_trained[all_resps])
+        # Now unscale the data
+
+            
+
+        
+        super().train(train_data)
 
     def _train_one_y_var(self, train_data_scaled, y_var):
         """Trains the model on one y variable
@@ -82,7 +96,7 @@ class LSTM(TimeSeriesModel):
             train_data_scaled (pd.DataFrame): Array with data for the y varaible 
             y_var (_type_): _description
         """        
-        x_train, y_train = self._create_dataset(data=np.array(train_data_scaled).reshape(-1, 1),
+        x_train, y_train = self._create_dataset(data=np.array(train_data_scaled[y_var]).reshape(-1, 1),
             time_steps=self.model_hyperparameters['time_steps'])
         
         train_data_fit = train_data_scaled.copy(deep=True)
@@ -95,7 +109,7 @@ class LSTM(TimeSeriesModel):
         self.train_split_filter = None
         # Train for each seed, parallelizing task
         parallelize_args = []
-        for seed_num in range(self.model_hyperparameters['num_seeds']):
+        for seed_num in range(self.model_hyperparameters['num_sims']):
             seed = self.seed.random()
             #this_model = self._generate_model_for_seed(x_train, y_train, seed, self.model_hyperparameters) 
             # parallelize_args.append([seed_num, this_model, x_train, y_train, self.model_hyperparameters])
@@ -113,15 +127,12 @@ class LSTM(TimeSeriesModel):
             train_data_fit[f'{y_var}_{self.model_name}_{seed_num}'] = np.concatenate((nan_array, train_data_fit_one_seed))
             self.model_objs.append(model)
         
-        
+        self.test_split_filter = tmp_test_split_filter
+        self.train_split_filter = tmp_train_split_filter
+        self.evaluation_filters = tmp_evaluation_filters
         #train_data_fit_one_seed = this_model.predict(x_train)
-
-        # Prepend train data with np.nan equal to the number of time steps in hyperparameters
-        #nan_array = np.array([[np.nan] * self.model_hyperparameters['time_steps']]).T
-        #train_data_fit_one_seed = np.concatenate((nan_array, train_data_fit_one_seed), axis=0)
-        # Add this data to the train fit array
-        #train_data_fit[f'{self.y_vars[0]}_{self.model_name}_{seed_num}'] = train_data_fit_one_seed
-        super().train(train_data_fit)
+        return train_data_fit
+    
     def _gen_and_predict_for_seed(self, seed_num, x_train, y_train, model_hyperparameters):
         """Generates and predicts the model for a given seed
 
@@ -137,6 +148,8 @@ class LSTM(TimeSeriesModel):
         #seed = self.seed.random()
         model = self._generate_model_for_seed(x_train, y_train, model_hyperparameters)
         #model.compile()
+        # TODO when we turn this to a parallel function and try to return the model, we get a pkl error
+        # Is there a way to write this model to a file and then read it back in outside of the parallel function?
         return seed_num, model, self._predict_model(seed_num, model, x_train, y_train, model_hyperparameters)
     
     def _predict_model_2(self, seed_num, x_train, y_train, model):
@@ -268,9 +281,9 @@ class LSTM(TimeSeriesModel):
         if 'verbose' not in self.model_hyperparameters:
             logging.info('No verbose specified in model hyperparameters, using default of 1')
             self.model_hyperparameters['verbose'] = 1
-        if 'num_seeds' not in self.model_hyperparameters:
-            logging.info('No num_seeds specified in model hyperparameters, using default of 1')
-            self.model_hyperparameters['num_seeds'] = 2
+        if 'num_sims' not in self.model_hyperparameters:
+            logging.info('No num_sims specified in model hyperparameters, using default of 1')
+            self.model_hyperparameters['num_sims'] = 2
 
 
         # Merge the train data fit with the train data 

@@ -108,13 +108,6 @@ class GeometricBrownianMotion(TimeSeriesModel):
         """Either calculate the mu and sigma or use the provided values to train the model
         """   
         self._train_starting_message()
-        
-        # GBM requires unscaled data
-        # self.train_data[self.y_vars] = self.scaler.inverse_transform(
-        #     df=self.train_data[self.y_vars],
-        #     df_name = "train_data", 
-        #     columns=self.y_vars)
-
         # Set model defaults
         self._set_hyperparameter_defaults()
 
@@ -124,16 +117,6 @@ class GeometricBrownianMotion(TimeSeriesModel):
         # Simulate the training data 
         train_data_fit = self._simulate_gbm_train()
 
-        # Merge the training input data with the simulated data
-        train_data_fit = pd.merge(self.train_data, train_data_fit,  on='Days_since_start')
-        # Scale the data, including model responses
-        # train_data_fit2 = self.scaler.transform(
-        #     df=train_data_fit, 
-        #     df_name = "train_data_fit", 
-        #     columns=self.y_vars + self.model_responses['raw'])
-        # self.train_data = self.train_data_fit 
-        # Scale the train data back 
-        #self.train_data[self.y_vars] = self.scaler.transform(df=self.train_data[self.y_vars], df_name = "train_data", columns=self.y_vars)
         # Call the base model class train function
         super().train(train_data_fit)
     
@@ -171,19 +154,10 @@ class GeometricBrownianMotion(TimeSeriesModel):
                 start=self.train_data[col].iloc[0],
                 dt=self.model_hyperparameters['dt'])
 
-            # _, gbm_data_3 = _GeometricBrownianMotion.simulate_gbm_3(
-            #     nsteps=nsteps,
-            #     num_sims=num_sims,
-            #     mu=self.train_params['mu'][col],
-            #     sigma=self.train_params['sigma'][col],
-            #     start=self.train_data[col].iloc[0],
-            #     dt=self.model_hyperparameters['dt'])
-            
             # Assign the simulated data to the train_data_fit dataframe, using multiple columns
             for i in range(num_sims):
                 train_data_fit[f'{col}_{self.model_name}_{i}'] = gbm_data[:,i]
 
-        # scale back the data before assigning it to the train_data_fit dataframe. This is because the scaler is going 
         return train_data_fit
 
     def test(self):

@@ -135,6 +135,7 @@ class Model():
     def train(self, train_data_fit=None):
         # train the model
         assert train_data_fit is not None, "Train data fit cannot be None, subclass must provide fit train data to the Model train method"
+        self.train_data_fit = pd.merge(self.train_data, train_data_fit,  on='Days_since_start')
         self.model_responses['processed'], self.train_data_fit = self._add_rollup_data(train_data_fit)
         self._plot_train_data()
         self._print_train_end_message()
