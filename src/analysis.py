@@ -8,7 +8,7 @@ import os
 from lstm import LSTM 
 from geometricbrownianmotion import GeometricBrownianMotion
 from numpy.random import RandomState
-
+import tensorflow as tf
 class AnalysisManager(): 
     # Create an analysis manager whose job is to manage the analysis objects
     # It should store a list of analysis objects and call the methods of the analysis objects
@@ -35,6 +35,7 @@ class AnalysisManager():
         self.output_dir = self._override_output_dir(output_dir, overwrite_out_dir=overwrite_out_dir)
         self._random_state_mgr = RandomState(master_seed)
         self.master_seed = master_seed
+        tf.random.set_seed(master_seed)
         self.save_png = save_png
         self.save_html = save_html
     def _override_output_dir(self, output_dir, overwrite_out_dir=True):
@@ -112,6 +113,15 @@ class AnalysisManager():
         for analysis_name, analysis_obj in self.analysis_objects_dict.items(): 
             logging.info(f"Running analysis for {analysis_name}")
             analysis_obj.run_analysis(run_descriptive, run_predictive)
+        # Run cross-model analysis 
+        self.run_cross_model_analysis()
+    def run_cross_model_analysis(self):
+        # Run cross model analysis. this should ultimately 
+        # 1.) create plots for the different model types to look at the differences between them
+        # 2.) create summary statistics for the different model types to look at the differences between them, simmilar to the model.py report method
+
+        raise NotImplementedError("This method is not implemented yet")
+    
     def set_models_for_analysis_objs(self, models_dict, analysis_objs_to_use=None): 
         # set models for each analysis object
         # if analysis_objs_to_use is None, set models for all analysis objects,
@@ -198,12 +208,6 @@ class Analysis():
         # also create an all-in-one plot with all the datasets, adding an extra variable that is 
         # self._run_all_in_one_plot()
         # Run descriptive time series analysis 
-    def _import_tensorflow(self):
-        """Imports tensorflow. Used as a utility function to avoid import time bogdown if not using tf
-        """        
-        import tensorflow as tf
-        tf.random.set_seed(master_seed)
-
 
     def run_predictive(self):
         # run predictive analytics
@@ -217,7 +221,6 @@ class Analysis():
         # For each model in the models dict, call the requisite model class's save method
         for model_type, all_models_for_type in self.models_dict.items():
             if model_type.lower() == 'lstm' and all_models_for_type is not None and len(all_models_for_type) > 0: 
-                self._import_tensorflow()
                 logging.info("Creating LSTM models")
                 for model_name, model_dict in all_models_for_type.items():
                     logging.info(f"Creating LSTM model {model_name}")
