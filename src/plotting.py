@@ -10,8 +10,14 @@ from itertools import product
 pio.renderers.default='browser'
 
 class PlottingConstants():
-     # Plotly's default color sequence
-    default_color_sequence = [
+    """ Class to hold constants for plotting
+
+    """
+    @staticmethod
+    def default_color_sequence(i):
+        return PlottingConstants._default_color_sequence[i % len(PlottingConstants._default_color_sequence)]
+    
+    _default_color_sequence = [
         '#1f77b4',  # muted blue
         '#ff7f0e',  # safety orange
         '#2ca02c',  # cooked asparagus green
@@ -23,14 +29,15 @@ class PlottingConstants():
         '#bcbd22',  # curry yellow-green
         '#17becf'   # blue-teal
     ]
+    debug_plots = False
 
-def plot_all_x_y_combinations(df, x_cols, y_cols, plot_type, output_dir, output_name, save_png=True, save_html=True):
+def plot_all_x_y_combinations(df, x_cols, y_cols, plot_type, output_dir, output_name, save_png=True, save_html=True, debug_plots=PlottingConstants.debug_plots):
     # Plot all x, y combinations
     if x_cols is None:
-        logging.info("No x columns provided, using all columns")
+        logging.info("No x columns provided, using all columns") if debug_plots else None
         x_cols = df.columns
     if y_cols is None:
-        logging.info("No y columns provided, using all columns")
+        logging.info("No y columns provided, using all columns") if debug_plots else None
         y_cols = df.columns
     for x_col, y_col in product(x_cols, y_cols):
         if x_col == y_col:
@@ -95,7 +102,7 @@ def plot_multiple_dfs(trace_name_df_dict, title, x_cols, y_cols, plot_type, outp
                 x_col=x_col, 
                 y_col=y_col, 
                 plot_type=plot_type,
-                color=PlottingConstants.default_color_sequence[num_traces],
+                color=PlottingConstants.default_color_sequence(num_traces), 
                 trace_name = trace_name)
             if add_split_lines:
                 # Add a vline at the end of each dataframe to split the traces
@@ -103,14 +110,14 @@ def plot_multiple_dfs(trace_name_df_dict, title, x_cols, y_cols, plot_type, outp
                     y=[min_y, max_y],
                     mode='lines',
                     # Get the color of the trace just added and match that color
-                    line=dict(color=PlottingConstants.default_color_sequence[num_traces], width=2, dash='dash'),
+                    line=dict(color=PlottingConstants.default_color_sequence(num_traces), width=2, dash='dash'),
                     name=f'{trace_name} Split Line'))
             num_traces += 1
         out_title = _make_title_replacements(f'{title} newline {x_col} vs. {y_col}')
 
         finalize_plot(fig=fig, title=out_title, filename=f'{output_name}_{x_col}_vs_{y_col}' , output_dir=output_dir, save_png=save_png, save_html=save_html)
 
-def plot(df, x_col, y_col, plot_type, trace_name, fig=None, color=None):
+def plot(df, x_col, y_col, plot_type, trace_name, fig=None, color=None, debug_plots=PlottingConstants.debug_plots):
     """Plots a single x, y combination
     
     Args:
@@ -122,7 +129,7 @@ def plot(df, x_col, y_col, plot_type, trace_name, fig=None, color=None):
         fig (plotly.graph_objects.Figure, optional): The figure to add the plot to. Defaults to None. If you pass a figure, it will add the plot to the figure and return the figure.
     """
     if fig is not None: 
-        logging.info(f"Adding plot {x_col} vs {y_col} to existing figure with name {trace_name}")
+        logging.info(f"Adding plot {x_col} vs {y_col} to existing figure with name {trace_name}") if debug_plots else None
     else: 
         # Create a new plotly graph objects figure
         fig = go.Figure()
@@ -172,22 +179,12 @@ def finalize_plot(fig, title, filename, output_dir, save_png=True, save_html=Tru
     """     
     if fig is None: 
         logging.error("No figure provided")
-    logging.info(f"Finalizing plot {filename}")
+    #logging.info(f"Finalizing plot {filename}")
     fig.update_layout(
         title=title,
         template='presentation',  # Use dark theme
         hovermode='closest',  # Show hover information for the closest point
-        # legend=dict(
-        #     orientation='h',  # Horizontal legend
-        #     yanchor='bottom',
-        #     y=1.02,
-        #     xanchor='right',
-        #     x=1
-        # ),
     )
-    # Make the plotly legend on the right side
-
-
 
     if not os.path.exists(output_dir):
             os.makedirs(output_dir)
