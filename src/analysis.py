@@ -8,7 +8,6 @@ import os
 from lstm import LSTM 
 from geometricbrownianmotion import GeometricBrownianMotion
 from numpy.random import RandomState
-import tensorflow as tf
 
 class AnalysisManager(): 
     # Create an analysis manager whose job is to manage the analysis objects
@@ -35,7 +34,7 @@ class AnalysisManager():
         # Create a directory called at output_dir/output 
         self.output_dir = self._override_output_dir(output_dir, overwrite_out_dir=overwrite_out_dir)
         self._random_state_mgr = RandomState(master_seed)
-        tf.random.set_seed(master_seed)
+        self.master_seed = master_seed
         self.save_png = save_png
         self.save_html = save_html
     def _override_output_dir(self, output_dir, overwrite_out_dir=True):
@@ -199,7 +198,13 @@ class Analysis():
         # also create an all-in-one plot with all the datasets, adding an extra variable that is 
         # self._run_all_in_one_plot()
         # Run descriptive time series analysis 
-        
+    def _import_tensorflow(self):
+        """Imports tensorflow. Used as a utility function to avoid import time bogdown if not using tf
+        """        
+        import tensorflow as tf
+        tf.random.set_seed(master_seed)
+
+
     def run_predictive(self):
         # run predictive analytics
         # Validate the models dictionary 
@@ -211,7 +216,8 @@ class Analysis():
         # For each model in the models dict, call the requisite model class's predict method
         # For each model in the models dict, call the requisite model class's save method
         for model_type, all_models_for_type in self.models_dict.items():
-            if model_type.lower() == 'lstm':
+            if model_type.lower() == 'lstm' and all_models_for_type is not None and len(all_models_for_type) > 0: 
+                self._import_tensorflow()
                 logging.info("Creating LSTM models")
                 for model_name, model_dict in all_models_for_type.items():
                     logging.info(f"Creating LSTM model {model_name}")
