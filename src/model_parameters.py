@@ -116,7 +116,7 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
                 'library_hyperparameters' : {
                     'activation' : 'relu',
                     'recurrent_activation' : 'sigmoid',
-                    'num_sims' : 5
+                    'num_sims' : 1
                 }
             },
         }
@@ -125,7 +125,7 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
     test_train_split_params = create_test_train_split_params()
     for model_type, model_dict in models_dict.items():
         for model_name, model in model_dict.items(): 
-            model['train_split_filter'] = test_train_split_params['train_split_filter']
             model['test_split_filter'] = test_train_split_params['test_split_filter']
             model['evaluation_filters'] = test_train_split_params['evaluation_filters']
+            model['train_split_filter'] = test_train_split_params['train_split_filter']
     return models_dict

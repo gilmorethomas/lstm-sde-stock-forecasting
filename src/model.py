@@ -42,7 +42,7 @@ class Model():
             logging.info(f"Creating save directory {save_dir}")
             makedirs(save_dir)
         self.model_name = model_name
-        self.model = None
+        self.model_objs = []  # List of model objects
         self.train_params = {}
         self.x_vars = x_vars
         self.y_vars = y_vars
@@ -59,7 +59,8 @@ class Model():
 
         # The below is if you want to base the scalings off of some other dataframe or column. This is kinda weird though...
         #self.scaler = Scaler(base_column=self.y_vars[0], base_df_name='all_data')
-        self.scaler = Scaler(base_column=self.y_vars[0], base_df_name='all_data')
+        # Have the scalings operated independently (that is, each column is scaled independently of the others and independently of the other dataframes)
+        self.scaler = Scaler(base_column=None, base_df_name=None)
 
         # Save scaled and unscaled data
         # Add the data to the scaler
