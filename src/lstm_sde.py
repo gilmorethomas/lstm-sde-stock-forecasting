@@ -68,7 +68,6 @@ class LSTMSDE(nn.Module):
         """        
         # Step 1: Observed time-sequential data of dimension D_obs = input_size is fed to single-layer LSTM network of dimension D_lstm = hidden_size
         # Ensure that x has the correct size (batch_size, seq_len, input_size)
-        #x = x.unsqueeze(1)  # add a singleton dimension for seq_len if it's missing (i.e. if you are only using one step)
 
         # Data mapped from input size to hidden size 
         # Create the tensors filled with zeros, where we have the (number of layers in LSTM, the batch size, and the size of the hidden state)
@@ -110,7 +109,7 @@ class LSTMSDE_to_train(LSTMSDE):
             _type_: _description_
         """        
         return self.lstm_sde(x)
-    def fit(self, dataloader, model, loss_fn, optimizer, n_epochs, x_inputs: dict, y_targets: dict):
+    def fit(self, dataloader, loss_fn, optimizer, n_epochs, x_inputs: dict, y_targets: dict):
         """Calls the train and fit methods of the model 
 
         Args:
@@ -124,7 +123,7 @@ class LSTMSDE_to_train(LSTMSDE):
         Returns:
             _type_: _description_
         """        
-        losses_over_time = self._train(dataloader, model, loss_fn, optimizer, n_epochs)
+        losses_over_time = self._train(dataloader, loss_fn, optimizer, n_epochs)
         predictions_dict = {}
         rmse_dict = {}
         for x_input_name, x_input in x_inputs.items():
@@ -137,7 +136,7 @@ class LSTMSDE_to_train(LSTMSDE):
         return predictions_dict, rmse_dict, losses_over_time
     
     @timer_decorator
-    def _train(self, dataloader, model, loss_fn, optimizer, n_epochs=1000):
+    def _train(self, dataloader, loss_fn, optimizer, n_epochs=1000):
         """Trains the model 
 
         Args:
@@ -150,13 +149,13 @@ class LSTMSDE_to_train(LSTMSDE):
         losses_over_time = []
         mse_over_time = []
         for epoch in range(n_epochs):
-            model.train()
+            self.train()
             epoch_losses = []
             for X_batch, y_batch in dataloader:
-                y_pred = model(X_batch)
+                y_pred = self(X_batch)
                 y_pred = y_pred.squeeze()  # remove extra dimensions from outputs
                 loss = loss_fn(y_pred, y_batch)
-                epoch_losses.append(np.sqrt(loss.detach().numpy())) # not sure if sqrt here and on test makes sense
+                epoch_losses.append(np.sqrt(loss.item())) # not sure if sqrt here and on test makes sense
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
@@ -194,54 +193,6 @@ def create_dataset(dataset, time_step=1):
         dataY.append(dataset[i + time_step, 0])
     return np.array(dataX), np.array(dataY)
 
-@timer_decorator
-def train(dataloader, model, loss_fn, optimizer, n_epochs=1000):
-    """Trains the model 
-
-    Args:
-        dataloader (pytorch DataLoader): Dataloader containing the x and y data for given batch size
-        model (pytorch model): The model to train
-        loss_fn (pytorch loss function): The loss function to use
-        optimizer (pytorch optimizer):  The optimizer to use
-        n_epochs (int, optional): Number of epochs to train for. Defaults to 1000.
-    """    
-    losses_over_time = []
-    mse_over_time = []
-    for epoch in range(n_epochs):
-        model.train()
-        epoch_losses = []
-        for X_batch, y_batch in dataloader:
-            y_pred = model(X_batch)
-            y_pred = y_pred.squeeze()  # remove extra dimensions from outputs
-            loss = loss_fn(y_pred, y_batch)
-            epoch_losses.append(np.sqrt(loss.detach().numpy())) # not sure if sqrt here and on test makes sense
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-        epoch_loss = np.mean(epoch_losses)
-        # mse_over_time.append() May ultimately want to pull this in. zsince our loss function is mse, it should be the same thing I think ?
-        #logging.info(f'Epoch {epoch+1}/{n_epochs}, Mean Loss: {np.mean(epoch_losses)}')
-        losses_over_time.append(np.mean(epoch_losses))
-    return losses_over_time
-
-def eval(model, loss_fn, x_input, y_target):
-    """Tests the model
-
-    Args:
-        model (pytorch model): The model to train
-        loss_fn (pytorch loss function): The loss function to use
-        x_input (pytorch tensor): The test  input
-        y_target (pytorch tensor): The test targets
-    Returns:
-        _type_: _description_
-    """    
-    model.eval()
-    with torch.no_grad():
-        y_pred_train = model(x_input)
-        y_pred_train = y_pred_train.squeeze()  # remove extra dimensions from outputs
-        rmse = np.sqrt(loss_fn(y_pred_train, y_target))
-    #print("Epoch %d: train RMSE %.4f, test RMSE %.4f" % (epoch, train_rmse, test_rmse))
-    return y_pred_train, rmse
 
 if __name__ == "__main__":
     # Set manual seed for reproducibility
@@ -255,7 +206,6 @@ if __name__ == "__main__":
     # Scale the data
     df = df['Close']
     scaler = MinMaxScaler()
-    #import pdb; pdb.set_trace()
     df2 = scaler.fit_transform(np.array(df).reshape(-1, 1))
 
     
@@ -276,19 +226,17 @@ if __name__ == "__main__":
     test_targets_tensor = torch.tensor(test_targets, dtype=torch.float32)
     batch_size = 32
     # Create PyTorch data loaders for the train and test data
-    train_loader = DataLoader(TensorDataset(train_data_tensor, train_targets_tensor), batch_size=batch_size, 
+    train_loader = DataLoader(TensorDataset(train_data_tensor, train_targets_tensor), batch_size=batch_size, shuffle=True
                               #num_workers=multiprocessing.cpu_count() # For this model, it seems that num_workers is less efficient when set
                               )
-    test_loader = DataLoader(TensorDataset(test_data_tensor, test_targets_tensor), batch_size=batch_size, 
+    test_loader = DataLoader(TensorDataset(test_data_tensor, test_targets_tensor), batch_size=batch_size, shuffle=True
                               #num_workers=multiprocessing.cpu_count() # For this model, it seems that num_workers is less efficient when set
                              )
 
-
     # Define the hyperparameters
-    #d_input = 1 # dimension of the input
     d_lstm = 64 # dimension of the LSTM network
     d_lat = 1 # dimension of the latent variable
-    d_input = 1 # dimension of the input
+    d_input = 1 # dimension of the input. TODO increasing this breaks things... 
     d_hidden = 1 # dimensionality of the hidden state of the LSTM. Determines how much information the network can store about the past 
     N = 50 # number of latent variable paths to simulate )
     t_sde = 1 # time step for SDE
@@ -296,18 +244,6 @@ if __name__ == "__main__":
     learning_rate = 10e-2 # learning rate for the optimizer
     num_epochs = 10 # number of epochs to train the model
     num_layers = 1 # number of layers in the LSTM network
-
-    # model = LSTMSDE(input_size=d_input, 
-    #                 num_layers=d_hidden,
-    #                 lstm_size=d_lstm,
-    #                 output_size=d_lat, 
-    #                 t_sde=t_sde, 
-    #                 n_sde=n_sde)
-
-    
-    # Convert the model to TorchScript. this should help with speeding up training
-    #model = torch.jit.script(model) 
-    #$print(model)
 
     # Steps: 
     # 1.) Observed time-sequential data of dimension Dobs = 1 is fed to single-latyer LSTM netowrk of dimension D_lstm
@@ -332,10 +268,9 @@ if __name__ == "__main__":
                     output_size=d_lat,
                     t_sde=t_sde,
                     n_sde=n_sde)
-    optimizer = torch.optim.SGD(model2.parameters(), lr=learning_rate)
-
+    #optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate)
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     fit_data = model.fit(train_loader, 
-                         model,
                          loss_fn, 
                          optimizer, 
                          num_epochs, 

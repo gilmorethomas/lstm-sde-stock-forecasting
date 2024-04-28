@@ -158,10 +158,10 @@ class LSTM(TimeSeriesModel):
 
         for seed_num, model, train_data_fit_one_seed in out_data:
             # Pandas concatatenate the data into the
-            data_dict['scaled']['test_data'][y_var + f'_{self.model_name}_{seed_num}'] = train_data_fit_one_seed['test_predict']
-            data_dict['scaled']['train_data'][y_var + f'_{self.model_name}_{seed_num}'] = train_data_fit_one_seed['train_predict']
+            data_dict['scaled']['test_data'].loc[:, f'{y_var}_{self.model_name}_{seed_num}'] = train_data_fit_one_seed['test_predict']
+            data_dict['scaled']['train_data'].loc[:, y_var + f'_{self.model_name}_{seed_num}'] = np.concatenate([nan_array, train_data_fit_one_seed['train_predict']])
             for eval_filter in train_data_fit_one_seed['evaluation_predict']:
-                data_dict['scaled']['evaluation_data'][eval_filter][y_var + f'_{self.model_name}_{seed_num}'] = train_data_fit_one_seed['evaluation_predict'][eval_filter]
+                data_dict['scaled']['evaluation_data'][eval_filter].loc[: ,y_var + f'_{self.model_name}_{seed_num}'] =train_data_fit_one_seed['evaluation_predict'][eval_filter]
             self.model_objs.append(model)
         
         self.test_split_filter = tmp_test_split_filter
