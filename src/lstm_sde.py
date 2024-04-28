@@ -99,7 +99,17 @@ class LSTMSDE_to_train(LSTMSDE):
     """    
     def __init__(self, input_size, lstm_size, output_size, num_layers, t_sde, n_sde):
         super(LSTMSDE_to_train, self).__init__(input_size, lstm_size, output_size, num_layers, t_sde, n_sde)
+        self.lstm_sde = LSTMSDE(input_size, lstm_size, output_size, num_layers, t_sde, n_sde)
+    def forward(self, x):
+        """Wrapper method used to call the lstm_sde forward method
 
+        Args:
+            x (_type_): _description_
+
+        Returns:
+            _type_: _description_
+        """        
+        return self.lstm_sde(x)
     def fit(self, dataloader, model, loss_fn, optimizer, n_epochs, x_inputs: dict, y_targets: dict):
         """Calls the train and fit methods of the model 
 
@@ -287,17 +297,17 @@ if __name__ == "__main__":
     num_epochs = 10 # number of epochs to train the model
     num_layers = 1 # number of layers in the LSTM network
 
-    model = LSTMSDE(input_size=d_input, 
-                    num_layers=d_hidden,
-                    lstm_size=d_lstm,
-                    output_size=d_lat, 
-                    t_sde=t_sde, 
-                    n_sde=n_sde)
+    # model = LSTMSDE(input_size=d_input, 
+    #                 num_layers=d_hidden,
+    #                 lstm_size=d_lstm,
+    #                 output_size=d_lat, 
+    #                 t_sde=t_sde, 
+    #                 n_sde=n_sde)
 
     
     # Convert the model to TorchScript. this should help with speeding up training
     #model = torch.jit.script(model) 
-    print(model)
+    #$print(model)
 
     # Steps: 
     # 1.) Observed time-sequential data of dimension Dobs = 1 is fed to single-latyer LSTM netowrk of dimension D_lstm
@@ -312,39 +322,41 @@ if __name__ == "__main__":
 
 
     # Define the optimizer
-    optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate)
 
     # Define the loss function
     loss_fn = torch.nn.MSELoss()
-    model2 = LSTMSDE_to_train(input_size=d_input,
+
+    model = LSTMSDE_to_train(input_size=d_input,
                     num_layers=d_hidden,
                     lstm_size=d_lstm,
                     output_size=d_lat,
                     t_sde=t_sde,
                     n_sde=n_sde)
-    fit_data = model2.fit(train_loader, 
-                          model, 
-                          loss_fn, 
-                          optimizer, 
-                          num_epochs, 
-                          x_inputs = {'train_data': train_data_tensor, 'test_data': test_data_tensor}, 
-                          y_targets = {'train_data': train_targets_tensor, 'test_data': test_targets_tensor})
+    optimizer = torch.optim.SGD(model2.parameters(), lr=learning_rate)
+
+    fit_data = model.fit(train_loader, 
+                         model,
+                         loss_fn, 
+                         optimizer, 
+                         num_epochs, 
+                         x_inputs = {'train_data': train_data_tensor, 'test_data': test_data_tensor}, 
+                         y_targets = {'train_data': train_targets_tensor, 'test_data': test_targets_tensor})
     #train_predictions, train_mse_over_time = model_2.train_model(train_loader, loss_fn, optimizer, num_epochs)
     print('Done training model 2')
     #test_predictions, test_mse_over_time = model_2.test_model(test_loader, loss_fn)
-    train_rmse_over_time = train(train_loader, model, loss_fn, optimizer, num_epochs)
+    #$train_rmse_over_time = train(train_loader, model, loss_fn, optimizer, num_epochs)
     print('Done training')
     # Evaluate the model on the training data
-    train_output, train_rmse = eval(model=model, loss_fn=loss_fn, x_input=train_data_tensor, y_target=train_targets_tensor)
+    #train_output, train_rmse = eval(model=model, loss_fn=loss_fn, x_input=train_data_tensor, y_target=train_targets_tensor)
     # Evaluate the model on the test data
-    test_output, test_rmse = eval(model=model, loss_fn=loss_fn, x_input=test_data_tensor, y_target=test_targets_tensor)
+    #test_output, test_rmse = eval(model=model, loss_fn=loss_fn, x_input=test_data_tensor, y_target=test_targets_tensor)
 
     #outputs = test(model, loss_fn, train_data_tensor, train_targets_tensor, test_data_tensor, test_targets_tensor)
     # We can't use NLLLoss because we are not doing classification
     # NLL loss in olaf's paper is defined differently than the standard NLL loss
     # loss_fn = torch.nn.NLLLoss() Olaf uses NLL but I think this is wrong.. that's for classification 
 
-
+    
     # Calculate calibration error 
     #calibration_error = np.mean(np.abs(test_predictions - test_targets_tensor.numpy()[0:len(test_predictions)]))
     print('Finished Training')
@@ -359,7 +371,9 @@ if __name__ == "__main__":
     fig.add_trace(go.Scatter(x=time, y=train_targets, mode='lines', name='Train Targets'))
 
     # Add a trace for time vs train predictions
-    fig.add_trace(go.Scatter(x=time, y=train_output, mode='lines', name='Train Predictions'))
+    fig.add_trace(go.Scatter(x=time, y=fit_data[0]['train_data'], mode='lines', name='Train Predictions'))
+    #fig.add_trace(go.Scatter(x=time, y=train_output, mode='lines', name='Train Predictions'))
+
 
     fig.update_layout(title='Time vs Train Targets and Predictions',
                     xaxis_title='Time',
@@ -371,17 +385,18 @@ if __name__ == "__main__":
     fig2.add_trace(go.Scatter(x=time, y=test_targets, mode='lines', name='Test Targets'))
 
     # Add a trace for time vs train predictions
-    fig2.add_trace(go.Scatter(x=time, y=test_output, mode='lines', name='Test Predictions'))
+    fig2.add_trace(go.Scatter(x=time, y=fit_data[0]['test_data'], mode='lines', name='Test Predictions'))
+    #fig2.add_trace(go.Scatter(x=time, y=test_output, mode='lines', name='Test Predictions'))
 
     fig2.update_layout(title='Time vs Test Targets and Predictions',
                     xaxis_title='Time (days)',
                     yaxis_title='Value')
     fig2.show()
 
-    loss_time = list(range(len(train_rmse_over_time)))
+    loss_time = list(range(len(fit_data[2])))
     # Create a line plot for train time vs train loss
     fig3 = go.Figure()
-    fig3.add_trace(go.Scatter(x=loss_time, y=train_rmse_over_time, mode='lines', name='Train Loss'))
+    fig3.add_trace(go.Scatter(x=loss_time, y=fit_data[2], mode='lines', name='Train Loss'))
     fig3.update_layout(title='Train Time vs Train Loss',
                     xaxis_title='Train Time (epochs)',
                     yaxis_title='Train Loss')
