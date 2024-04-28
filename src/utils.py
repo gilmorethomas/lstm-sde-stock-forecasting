@@ -3,7 +3,16 @@ from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 from tqdm.auto import tqdm 
 from threadpoolctl import threadpool_limits 
 import multiprocess as mp 
+import time 
 
+def timer_decorator(func): 
+    def wrapper(*args, **kwargs): 
+        start = time.time()
+        ret_val = func(*args, **kwargs)
+        end = time.time()
+        print(f"Function {func.__name__} took {end - start} seconds to run")
+        return ret_val
+    return wrapper
 
 def parallelize(func, args_list, executor=ProcessPoolExecutor(), run_parallel = True):
     if not run_parallel or len(args_list) <= 1:
