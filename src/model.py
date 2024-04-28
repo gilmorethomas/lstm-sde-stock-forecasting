@@ -6,6 +6,7 @@ import numpy as np
 from plotting import plot_all_x_y_combinations, plot_multiple_dfs
 from scaler import Scaler
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
 
 
 class Model(): 
@@ -54,20 +55,21 @@ class Model():
         self.seed = seed
         logging.info('Using the first y var as the base column for scaling')
         # Assign all the dataframes that are expected to be filled later 
-        self.train_data_fit, self.test_data_fit, self.evaluation_data_fit = None, None, None
         self.model_performance = {}
 
         # The below is if you want to base the scalings off of some other dataframe or column. This is kinda weird though...
         #self.scaler = Scaler(base_column=self.y_vars[0], base_df_name='all_data')
         # Have the scalings operated independently (that is, each column is scaled independently of the others and independently of the other dataframes)
         self.scaler = Scaler(base_column=None, base_df_name=None)
+        self._scaler = MinMaxScaler()
+        self._scaler.fit(data[self.y_vars])
 
         # Save scaled and unscaled data
         # Add the data to the scaler
         self.scaler.fit(df=self.data, df_name='all_data', scaler_type='MinMaxScaler')
+        self.data_scaled = self.scaler.transform(df=self.data, df_name='all_data_scaled', columns = self.y_vars)
         
         # If you want to scale the data by default by default the data is scaled
-        #self.data = self.scaler.transform(df=self.data, df_name='all_data', columns = self.y_vars)
         self._build_model_response_dict()
 
     def _build_model_response_dict(self):
@@ -92,9 +94,30 @@ class Model():
         #self.train_data = self.scaler.transform(df=train_data_unscaled, df_name='train_data', columns=self.y_vars)
         #self.evaluation_data = {k: self.scaler.transform(df=v, df_name=k, columns=self.y_vars) for k, v in evaluation_data_unscaled.items()}
         #self.test_data = self.scaler.transform(df=test_data_unscaled, df_name='test_data', columns=self.y_vars)
-        self.test_data = self.data[self.test_split_filter]
-        self.train_data = self.data[self.train_split_filter]
-        self.evaluation_data = {k: self.data[v] for k, v in self.evaluation_filters.items()}
+        test_data = self.data[self.test_split_filter]
+        # Scale the data and then apply the test split filter 
+        test_data_scaled = self.data_scaled[self.test_split_filter]
+        train_data = self.data[self.train_split_filter]
+        train_data_scaled = self.data_scaled[self.train_split_filter]
+        evaluation_data = {k: self.data[v] for k, v in self.evaluation_filters.items()}
+        evaluation_data_scaled = {k: self.data_scaled[v] for k, v in self.evaluation_filters.items()}
+        self.data_dict = {
+            'unscaled' : 
+            {
+                'all_data' : self.data, 
+                'train_data': train_data, 
+                'test_data': test_data, 
+                'evaluation_data' : evaluation_data
+            },
+            'scaled' : 
+            {
+                'all_data' : self.data_scaled, 
+                'train_data': train_data_scaled, 
+                'test_data': test_data_scaled, 
+                'evaluation_data' : evaluation_data_scaled
+            }
+        }
+
         # Add the evaluation data to the scaler
         self._plot_test_train_split()
     def _plot_test_train_split(self):
@@ -102,8 +125,9 @@ class Model():
         """        
         # Build a temporary dictionary of all the data splits, including train, test, and eval
         # This will be used to plot the data
-        all_data = {'train_data': self.train_data, 'test_data': self.test_data}
-        all_data.update(self.evaluation_data)
+
+        all_data = {'train_data': self.data_dict['scaled']['train_data'], 'test_data': self.data_dict['scaled']['test_data']}
+        all_data.update(self.data_dict['scaled']['evaluation_data'])
         # Unscale the data
         #all_data = {k: self.scaler.inverse_transform(df_name =k, df=v, columns=self.y_vars) for k, v in all_data.items()}
         # Plot the data
@@ -135,7 +159,7 @@ class Model():
     def train(self, train_data_fit=None):
         # train the model
         assert train_data_fit is not None, "Train data fit cannot be None, subclass must provide fit train data to the Model train method"
-        self.train_data_fit = pd.merge(self.train_data, train_data_fit,  on='Days_since_start')
+        self.train_data_fit = pd.merge(self.data_dict['train_data'], train_data_fit,  on='Days_since_start')
         self.model_responses['processed'], self.train_data_fit = self._add_rollup_data(train_data_fit)
         self._plot_train_data()
         self._print_train_end_message()
@@ -346,6 +370,8 @@ class Model():
         metrics['MAE'] = mean_absolute_error(y_data, model_data)
         # Calculate the R2
         metrics['R2'] = r2_score(y_data, model_data)
+        # Calculate the confidence-weighted-calibration error 
+        metrics['CWCE'] = 0
         metrics['AIC'] = 0
         metrics['BIC'] = 0
         return metrics
@@ -375,7 +401,7 @@ class Model():
         if not path.exists(report_dir):
             makedirs(report_dir)
         logging.info(f'Writing report to {report_dir}')
-        pd.DataFrame(self.train_data).to_csv(path.join(report_dir, 'train_data.csv'))
+        pd.DataFrame(self.data_dict['train_data']).to_csv(path.join(report_dir, 'train_data.csv'))
         pd.DataFrame(self.test_data).to_csv(path.join(report_dir, 'test_data.csv'))
         for k, v in self.evaluation_data.items():
             pd.DataFrame(v).to_csv(path.join(report_dir, f'evaluation_data_{k}.csv'))
