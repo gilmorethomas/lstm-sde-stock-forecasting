@@ -271,9 +271,10 @@ class Analysis():
             model (_type_): _description_
         """        
         model.split_data()
-        model.train()
-        model.test()
-        model.predict()
+        model.fit()
+        #model.train()
+        #model.test()
+        #model.predict()
         model.save()
         model.plot()
         model.report()
