@@ -137,7 +137,7 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
                 'library_hyperparameters' : {
                     'activation' : 'relu',
                     'recurrent_activation' : 'sigmoid',
-                    'num_sims' : 2
+                    'num_sims' : 1
                 }
             },
         }

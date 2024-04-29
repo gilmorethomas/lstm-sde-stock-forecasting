@@ -82,6 +82,9 @@ def plot_multiple_dfs(trace_name_df_dict, title, x_cols, y_cols, plot_type, outp
         save_png (bool, optional): Whether or not to save png. Defaults to True.
         save_html (bool, optional): Whether or not to save png. Defaults to True.
     """    
+    if trace_name_df_dict is None or len(trace_name_df_dict) == 0:
+        logging.error("No dataframes provided")
+        return
     # Assert that all dataframes have the same columns for columns that are specified in x_cols and y_cols
     for df in trace_name_df_dict.values():
         assert all([col in df.columns for col in x_cols + y_cols]), "All x_cols and y_cols must be in the DataFrame"

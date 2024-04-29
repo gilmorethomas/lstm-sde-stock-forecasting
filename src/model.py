@@ -60,40 +60,82 @@ class Model():
         # The below is if you want to base the scalings off of some other dataframe or column. This is kinda weird though...
         #self.scaler = Scaler(base_column=self.y_vars[0], base_df_name='all_data')
         # Have the scalings operated independently (that is, each column is scaled independently of the others and independently of the other dataframes)
-        self.scaler = Scaler(base_column=None, base_df_name=None)
-        self._scaler = MinMaxScaler()
-        self._scaler.fit(data[self.y_vars])
+        self.scaler = MinMaxScaler()
+        #self.scaler.fit(data[self.y_vars], df_name = 'all_data')
+        self.scaler.fit(data[self.y_vars])
 
+        self.data_scaled = self.data.copy(deep=True)
+        #self.data_scaled[self.y_vars] = self.scaler.transform(data[self.y_vars], df_name='all_data')
+        self.data_scaled[self.y_vars] = self.scaler.transform(data[self.y_vars])
+        self._build_model_response_dict()
         # Save scaled and unscaled data
         # Add the data to the scaler
-        self.scaler.fit(df=self.data, df_name='all_data', scaler_type='MinMaxScaler')
-        self.data_scaled = self.scaler.transform(df=self.data, df_name='all_data_scaled', columns = self.y_vars)
         
         # If you want to scale the data by default by default the data is scaled
-        self._build_model_response_dict()
 
+    def fit(self, data_dict):
+        """Helper method that overrides self.data with the data dict
+
+        Args:
+            data_dict (dict): dictionary of dataframes
+        """        
+        # TODO (check that all the expected things are in the data dict for validation check). 
+        # This is because each model may train differently, using different data (scaled or unscaled)
+        self.data_dict = data_dict
+        # train the model
+        assert self.data_dict['not_normalized']['train_data'] is not None, "Train data fit cannot be None, subclass must provide fit train data to the Model train method"
+
+        # Add rollup data for all dataframes    
+
+        self.model_responses['processed'], self.data_dict['not_normalized']['train_data'] = self._add_rollup_data(data_dict['not_normalized']['train_data'])
+        _, self.data_dict['normalized']['train_data'] = self._add_rollup_data(data_dict['normalized']['train_data'])
+        _, self.data_dict['not_normalized']['test_data'] = self._add_rollup_data(data_dict['not_normalized']['test_data'])
+        _, self.data_dict['normalized']['test_data'] = self._add_rollup_data(data_dict['normalized']['test_data'])
+        for k, v in data_dict['not_normalized']['evaluation_data'].items():
+            _, self.data_dict['not_normalized']['evaluation_data'][k] = self._add_rollup_data(v)
+        for k, v in data_dict['normalized']['evaluation_data'].items():
+            _, self.data_dict['normalized']['evaluation_data'][k] = self._add_rollup_data(v)
+
+
+        self._plot_train_data()
+        self._print_train_end_message()
     def _build_model_response_dict(self):
         # Build model response raw list from y_vars with model name and number of sims appended
         self.model_responses['raw'] = [f'{y_var}_{self.model_name}_{i}' for y_var in self.y_vars for i in range(self.model_hyperparameters['num_sims'])]
+    def _normalize_data_dict(self, data_dict, y_col):
+        # Returns a normalized data dictionary, where data with columns in y_col are scaled
+        # Unscale the data
+        all_resps = [y_col] + [resp for resp in self.model_responses['raw'] if y_col in resp]
+        # Now unscale the data
+        for k, v in data_dict.items():
+            # check if v is a dataframe 
+            if isinstance(v, pd.DataFrame):
+                data_dict[k][all_resps] = self.scaler.inverse_transform(data_dict[k][all_resps])
+            # nested dictionary
+            else:
+                for k1, v1 in v.items():
+                    data_dict[k][k1][all_resps] = self.scaler.inverse_transform(data_dict[k][k1][all_resps])
+        return data_dict
+
+    def _unnormalize_data_dict(self, data_dict):
+        # Returns a normalized data dictionary, where data with columns in y_col are scaled
+        for k, v in data_dict.items():
+            # check if v is a dataframe 
+            if k == 'all_data' :
+                continue
+            if isinstance(v, pd.DataFrame):
+                cols = v.select_dtypes(include=['float64']).columns
+                data_dict[k][cols] = self.scaler.inverse_transform(data_dict[k][cols], df_name=k)
+            # nested dictionary
+            else:
+                for k1, v1 in v.items():
+                    cols = v1.select_dtypes(include=['float64']).columns
+                    data_dict[k][k1][cols] = self.scaler.inverse_transform(data_dict[k][k1][cols], df_name=k1)
+        return data_dict
     
     def split_data(self):
-        # Perform test, train, evaluation split using the filters in model hyperparameters. Us
+        # Perform test, train, evaluation split using the filters in model hyperparameters. 
         # Set self.train_data equal to the data with the train split filter applied
-        #data_unscaled = self.scaler.inverse_transform(df=self.data, df_name='all_data', columns=self.y_vars)                
-
-        # Split the data into test and train using filters
-
-        #train_data_unscaled = data_unscaled[self.train_split_filter]
-        
-        # Set self.test_data equal to the data with the test split filter applied
-        #test_data_unscaled = data_unscaled[self.test_split_filter]
-        # Set self.evaluation_data equal to the data with the evaluation filters applied
-        #evaluation_data_unscaled = {k + ' Evaluation Data': data_unscaled[v] for k, v in self.evaluation_filters.items()}
-
-        # Add the data to the scaler. First need to unscale the data 
-        #self.train_data = self.scaler.transform(df=train_data_unscaled, df_name='train_data', columns=self.y_vars)
-        #self.evaluation_data = {k: self.scaler.transform(df=v, df_name=k, columns=self.y_vars) for k, v in evaluation_data_unscaled.items()}
-        #self.test_data = self.scaler.transform(df=test_data_unscaled, df_name='test_data', columns=self.y_vars)
         test_data = self.data[self.test_split_filter]
         # Scale the data and then apply the test split filter 
         test_data_scaled = self.data_scaled[self.test_split_filter]
@@ -102,14 +144,14 @@ class Model():
         evaluation_data = {k: self.data[v] for k, v in self.evaluation_filters.items()}
         evaluation_data_scaled = {k: self.data_scaled[v] for k, v in self.evaluation_filters.items()}
         self.data_dict = {
-            'unscaled' : 
+            'not_normalized' : 
             {
                 'all_data' : self.data, 
                 'train_data': train_data, 
                 'test_data': test_data, 
                 'evaluation_data' : evaluation_data
             },
-            'scaled' : 
+            'normalized' : 
             {
                 'all_data' : self.data_scaled, 
                 'train_data': train_data_scaled, 
@@ -126,12 +168,8 @@ class Model():
         # Build a temporary dictionary of all the data splits, including train, test, and eval
         # This will be used to plot the data
 
-        all_data = {'train_data': self.data_dict['scaled']['train_data'], 'test_data': self.data_dict['scaled']['test_data']}
-        all_data.update(self.data_dict['scaled']['evaluation_data'])
-        # Unscale the data
-        #all_data = {k: self.scaler.inverse_transform(df_name =k, df=v, columns=self.y_vars) for k, v in all_data.items()}
-        # Plot the data
-        
+        all_data = {'train_data': self.data_dict['not_normalized']['train_data'], 'test_data': self.data_dict['not_normalized']['test_data']}
+        all_data.update(self.data_dict['not_normalized']['evaluation_data'])
         plot_multiple_dfs(all_data, 
             title='Train, Test, and Evaluation Data Split',
             x_cols=self.x_vars, 
@@ -155,14 +193,6 @@ class Model():
         [logging.info(''.join(['-'] * 50)) for _ in range(1)]
         logging.info(f"Training {self.model_name} complete")
         [logging.info(''.join(['-'] * 50)) for _ in range(1)]
-
-    def train(self, train_data_fit=None):
-        # train the model
-        assert train_data_fit is not None, "Train data fit cannot be None, subclass must provide fit train data to the Model train method"
-        self.train_data_fit = pd.merge(self.data_dict['train_data'], train_data_fit,  on='Days_since_start')
-        self.model_responses['processed'], self.train_data_fit = self._add_rollup_data(train_data_fit)
-        self._plot_train_data()
-        self._print_train_end_message()
     
     def _add_rollup_data(self, response_data):
         """
@@ -206,14 +236,13 @@ class Model():
         return processed_repsonses, response_data
         #self.train_data_fit_scaled[model_cols_to_scale] = self.scaler.unscale_data(self.train_data_fit[model_cols_to_scale], model_cols_to_scale)
 
-    def _plot_train_data(self):
+    def _plot_train_data(self, data_type='train_data', norm = 'not_normalized'):
         # Plots the train data fit for each model along with the train data
         # This should be used to validate that the model is fitting the data correctly
-        #y_cols=[col for col in self.train_data_fit_scaled if col not in self.x_vars]
         # Build a dictionary of the columns that are not x_vars
-        logging.info('Plotting train data')
+        logging.info(f'Plotting {data_type}')
         # Byuild a dictionary with dataframes with one column each 
-        all_data = {col: self.train_data_fit[self.x_vars + [col]] for col in self.y_vars + self.model_responses['processed'] + self.model_responses['raw']}
+        all_data = {col: self.data_dict[norm][data_type][self.x_vars + [col]] for col in self.y_vars + self.model_responses['processed'] + self.model_responses['raw']}
 
         # Rename the columns with {y_var}_{model_name}_{seed} to be {y_var}. This is so we can pass the 
         for key in all_data.keys():
@@ -224,44 +253,42 @@ class Model():
         all_data_raw = {k: v for k, v in all_data.items() if k in self.model_responses['raw']}
         all_data_proc = {k: v for k, v in all_data.items() if k in self.model_responses['processed']}
         # Plot the raw data
+        title = f'{data_type} Raw'
         plot_multiple_dfs(all_data_raw,
-            title='Model Train Data Raw',
+            title=title,
             x_cols=self.x_vars, 
             y_cols=self.y_vars,
             plot_type='line', 
-            output_dir=path.join(self.save_dir, 'train_data', 'all_iterations'),
+            output_dir=path.join(self.save_dir, 'model_predictions'),
             output_name=self.model_name + '_all_models', 
             save_png=self.save_png, 
             save_html=self.save_html,
             add_split_lines=False)
         # Plot the processed data
+        title = f'{data_type} Processed'
         plot_multiple_dfs(all_data_proc,
-            title='Model Train Data Processed',
+            title=title,
             x_cols=self.x_vars, 
             y_cols=self.y_vars,
             plot_type='line', 
-            output_dir=path.join(self.save_dir, 'train_data', 'all_iterations'),
+            output_dir=path.join(self.save_dir, 'model_predictions'),
             output_name=self.model_name + '_all_models_processed', 
             save_png=self.save_png, 
             save_html=self.save_html,
             add_split_lines=False)
-
+        title = f'{data_type} Raw and Processed'
         # plot raw and proc data
         plot_multiple_dfs(all_data,
-            title='Model Train Data Raw and Processed',
+            title=title,
             x_cols=self.x_vars, 
             y_cols=self.y_vars,
             plot_type='line', 
-            output_dir=path.join(self.save_dir, 'train_data', 'all_iterations'),
+            output_dir=path.join(self.save_dir, 'model_predictions'),
             output_name=self.model_name + '_all_models_raw_and_processed', 
             save_png=self.save_png, 
             save_html=self.save_html,
             add_split_lines=False)
         
-    def test(self):
-        # test the model
-        raise NotImplementedError("This should be implemented by the child class")
-    
     def predict(self):
         # predict the model
         raise NotImplementedError("This should be implemented by the child class")
@@ -279,21 +306,25 @@ class Model():
         else:
             logging.status(f"No model exists at {path.join(self.save_dir, self.model_name + '.pkl')}")
     
-    def plot(self, plot_types = ['scatter', 'line', 'bar']):
+    def plot(self, 
+             plot_types = ['line']
+             ):
         # Plot the model
         # Use the plotting class to plot the entirety of the dataset (all columns as options)
         # Create a list of columns from the train_data_fit that do not exist in the x_vars
         # This will be used to plot all x vs y combinations
-        if self.train_data_fit is not None:
-            y_cols = [col for col in self.train_data_fit.columns if col not in self.x_vars]
+        # Plot the train data 
+        train_df = self.data_dict['not_normalized']['train_data']
+        if train_df is not None:
+            y_cols = [col for col in train_df.columns if col not in self.x_vars]
             # Plot all x, y combinations
         else:
             logging.error('Train Data Fit Cannot be None')
             return
-        assert all([col in self.train_data_fit.columns for col in self.x_vars]), "All x_vars must be in the train_data_fit"
+        assert all([col in train_df.columns for col in self.x_vars]), "All x_vars must be in the train_data_fit"
         # Plot each individual model
         for plot_type in plot_types:
-            plot_all_x_y_combinations(self.train_data_fit, 
+            plot_all_x_y_combinations(train_df, 
                 x_cols=self.x_vars, 
                 y_cols=y_cols, 
                 plot_type=plot_type, 
@@ -314,16 +345,25 @@ class Model():
         # - Model performance on test data
         # - Model performance on evaluation data
         # - Any other relevant information
-        
-        train_performance = self._calculate_model_performance(self.train_data_fit)
-        self.model_performance['train'] = train_performance
-
-        if self.test_data_fit is not None:
-            test_performance = self._calculate_model_performance(self.test_data_fit)
+        data_dict = self.data_dict['not_normalized']
+        if data_dict['train_data'] is not None:
+            train_performance = self._calculate_model_performance(data_dict['train_data'])
+            self.model_performance['train'] = train_performance
+        else:
+            logging.error('Train Data Fit Cannot be None')
+        if data_dict['test_data'] is not None:
+            test_performance = self._calculate_model_performance(data_dict['test_data'])
             self.model_performance['test'] = test_performance
         else:
             logging.error('Test Data Fit Cannot be None')
+        if data_dict['evaluation_data'] is not None:
+            for k, v in data_dict['evaluation_data'].items():
+                eval_performance = self._calculate_model_performance(v)
+                self.model_performance[k] = eval_performance
+        else:
+            logging.error('Evaluation Data Fit Cannot be None')       
         self._write_output_csvs()
+
     def _calculate_model_performance(self, df):
         """Calculates model performance for all models, given a dataframe
         The dataframe can be the train, test, or evaluation data
@@ -376,23 +416,6 @@ class Model():
         metrics['BIC'] = 0
         return metrics
 
-
-          # Calculate the RMSE
-        #import pdb; pdb.set_trace()
-
-        #for seed_num in range(self.model_hyperparameters['num_seeds']):
-            
-            # Prepend train data with np.nan equal to the number of time steps in hyperparameters
-            #nan_array = np.array([[np.nan] * self.model_hyperparameters['time_steps']]).T
-            #train_data_fit = np.concatenate((nan_array, train_data_fit), axis=0)
-            #model_rmse{f'{self.model_name}_{seed_num}'} = math.sqrt(mean_squared_error(y_train, train_data_fit))
-            # Add this data to the train fit array
-            #self.train_data_fit[f'{self.y_vars[0]}_{self.model_name}_{seed_num}'] = train_data_fit
-
-        #self.train_rmse = model_rmse
-        #import pdb; pdb.set_trace()
-        # Unscale the data
-        #import pdb; pdb.set_trace()
     def _write_output_csvs(self):
         """Writes the output data to csvs
         """        
@@ -401,20 +424,28 @@ class Model():
         if not path.exists(report_dir):
             makedirs(report_dir)
         logging.info(f'Writing report to {report_dir}')
-        pd.DataFrame(self.data_dict['train_data']).to_csv(path.join(report_dir, 'train_data.csv'))
-        pd.DataFrame(self.test_data).to_csv(path.join(report_dir, 'test_data.csv'))
-        for k, v in self.evaluation_data.items():
-            pd.DataFrame(v).to_csv(path.join(report_dir, f'evaluation_data_{k}.csv'))
-        # Write the train fit data to csv
-        if self.train_data_fit is not None:
-            pd.DataFrame(self.train_data_fit).to_csv(path.join(report_dir, 'train_data_fit.csv'))
-        else:
-            logging.info('No training data found, bypassing writing to csv')
+
+
+        for k, v in self.data_dict.items():
+            for k1, v1 in v.items():
+                if isinstance(v1, pd.DataFrame):
+                    pd.DataFrame(v1).to_csv(path.join(report_dir, f'{k}_{k1}.csv'))
+                else: 
+                    for k2, v2 in v1.items():
+                        pd.DataFrame(v2).to_csv(path.join(report_dir, f'{k}_{k1}_{k2}.csv'))
+
         # Write the model performance to csv
         for k, v in self.model_performance.items():
             v.to_csv(path.join(report_dir, f'{k}_model_performance.csv'))
         # Write the model hyperparameters to csv
-        pd.DataFrame(self.model_hyperparameters, index=[0]).to_csv(path.join(report_dir, 'model_hyperparameters.csv'))
+        try:
+            pd.DataFrame(self.model_hyperparameters, index=[0]).to_csv(path.join(report_dir, 'model_hyperparameters.csv'))
+        except Exception as e:
+            try:
+                logging.warning(f"Error writing model hyperparameters to csv: {e}, trying again")
+                pd.DataFrame(self.model_hyperparameters).to_csv(path.join(report_dir, 'model_hyperparameters.csv'))
+            except Exception as e2:
+                logging.error(f"Error writing model hyperparameters to csv: {e2}")
     def _validate_hyperparameters(self):
         # Validate the hyperparameters of the model
         raise NotImplementedError("This should be implemented by the child class")

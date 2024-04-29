@@ -104,7 +104,7 @@ class GeometricBrownianMotion(TimeSeriesModel):
                 self.train_params['mu'][col] = self.model_hyperparameters['mu']
                 self.train_params['sigma'][col] = self.model_hyperparameters['sigma']
 
-    def train(self):
+    def fit(self):
         """Either calculate the mu and sigma or use the provided values to train the model
         """   
         self._train_starting_message()
@@ -116,9 +116,9 @@ class GeometricBrownianMotion(TimeSeriesModel):
 
         # Simulate the training data 
         train_data_fit = self._simulate_gbm_train()
-
+        raise NotImplementedError("Need to implement the rest of the fit method")
         # Call the base model class train function
-        super().train(train_data_fit)
+        super().fit(train_data_fit)
     
     def save(self):
         return
