@@ -105,7 +105,28 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
             # }
         }
     if lstm_sde:
-        models_dict["LSTM_SDE"] = None 
+        models_dict["LSTM_SDE"] = {
+            'lstm_sde_1' : {
+                'model_hyperparameters': {
+                    'num_sims' : 1,
+                    'num_epochs' : 100, 
+                    'prev_days_for_window' : 30,
+                    'batch_size' : 64,
+                    'shuffle' : True,
+                    'd_lstm' : 64, # dimension of the LSTM network
+                    'd_lat' : 1, # dimension of the latent variable
+                    'd_input' : 1, # dimension of the input. TODO increasing this breaks things... 
+                    'd_hidden' : 1, # dimensionality of the hidden state of the LSTM. Determines how much information the network can store about the past 
+                    'N' : 50, # number of latent variable paths to simulate )
+                    't_sde' : 1, # time step for SDE
+                    'n_sde' : 100, # number of latent variables in each latent variable path (i.e num days to simulate for each path)
+                    'learning_rate' : 10e-2, # learning rate for the optimizer
+                    'loss' : 'mean_squared_error',
+                    'optimizer' : 'adam' # which optimizer to use. Options are 'adam' and 'sgd'
+                },
+            },
+
+        } 
 
     if lstm:
         # TODO allow test train split to also be a callback to a function, so we can filter specifically on the date
@@ -116,7 +137,7 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
                 'library_hyperparameters' : {
                     'activation' : 'relu',
                     'recurrent_activation' : 'sigmoid',
-                    'num_sims' : 2
+                    'num_sims' : 1
                 }
             },
         }

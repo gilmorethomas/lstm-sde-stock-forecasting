@@ -114,7 +114,7 @@ class AnalysisManager():
             logging.info(f"Running analysis for {analysis_name}")
             analysis_obj.run_analysis(run_descriptive, run_predictive)
         # Run cross-model analysis 
-        self.run_cross_model_analysis()
+        #self.run_cross_model_analysis()
     def run_cross_model_analysis(self):
         # Run cross model analysis. this should ultimately 
         # 1.) create plots for the different model types to look at the differences between them
@@ -271,9 +271,7 @@ class Analysis():
             model (_type_): _description_
         """        
         model.split_data()
-        model.train()
-        model.test()
-        model.predict()
+        model.fit()
         model.save()
         model.plot()
         model.report()
