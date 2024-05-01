@@ -4,6 +4,8 @@ from tqdm.auto import tqdm
 from threadpoolctl import threadpool_limits 
 import multiprocess as mp 
 import time 
+from lstm_logger import logger as logging
+import colorlog
 
 def timer_decorator(func): 
     def wrapper(*args, **kwargs): 

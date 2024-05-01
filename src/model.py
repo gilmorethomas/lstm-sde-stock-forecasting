@@ -1,6 +1,6 @@
 from os import path, makedirs
 import pickle
-import logging
+from lstm_logger import logger as logging
 import pandas as pd 
 import numpy as np
 import copy
@@ -240,7 +240,7 @@ class Model():
         #self.train_data_fit_scaled[model_cols_to_scale] = self.scaler.unscale_data(self.train_data_fit[model_cols_to_scale], model_cols_to_scale)
 
     def _plot_fit(self, data_type='train_data', norm = 'not_normalized'):
-        # Plots the train data fit for each model along with the train data
+        # Plots the train data fit for each model along with the train data 
         # This should be used to validate that the model is fitting the data correctly
         # Build a dictionary of the columns that are not x_vars
         logging.info(f'Plotting {data_type}')
@@ -255,8 +255,8 @@ class Model():
             all_data[key] = all_data[key].rename(columns = cols)
 
         # Build a dict for raw and proc based off of the all_data dict
-        all_data_raw = {k: v for k, v in all_data.items() if k in self.model_responses['raw']}
-        all_data_proc = {k: v for k, v in all_data.items() if k in self.model_responses['processed']}
+        all_data_raw = {k: v for k, v in all_data.items() if k in self.model_responses['raw'] + self.y_vars}
+        all_data_proc = {k: v for k, v in all_data.items() if k in self.model_responses['processed'] + self.y_vars}
         # Plot the raw data
         title = f'{data_type} Raw'
         plot_multiple_dfs(all_data_raw,
@@ -265,7 +265,7 @@ class Model():
             y_cols=self.y_vars,
             plot_type='line', 
             output_dir=path.join(self.save_dir, 'model_predictions'),
-            output_name=self.model_name + f'{data_type}_all_models', 
+            output_name=f'{self.model_name}_{data_type}_all_models', 
             save_png=self.save_png, 
             save_html=self.save_html,
             add_split_lines=False)
@@ -277,7 +277,7 @@ class Model():
             y_cols=self.y_vars,
             plot_type='line', 
             output_dir=path.join(self.save_dir, 'model_predictions'),
-            output_name=self.model_name + f'{data_type}_all_models_processed', 
+            output_name=f'{self.model_name}_{data_type}_all_models_processed', 
             save_png=self.save_png, 
             save_html=self.save_html,
             add_split_lines=False)
@@ -289,7 +289,7 @@ class Model():
             y_cols=self.y_vars,
             plot_type='line', 
             output_dir=path.join(self.save_dir, 'model_predictions'),
-            output_name=self.model_name + '_all_models_raw_and_processed', 
+            output_name=f'{self.model_name}_{data_type}_all_models_raw_and_processed', 
             save_png=self.save_png, 
             save_html=self.save_html,
             add_split_lines=False)
@@ -364,8 +364,6 @@ class Model():
         for eval_name in self.evaluation_data_names:
             eval_performance = self._calculate_model_performance(data_dict[eval_name])
             self.model_performance[eval_name] = eval_performance
-        else:
-            logging.error('Evaluation Data Fit Cannot be None')       
         self._write_output_csvs()
 
     def _calculate_model_performance(self, df):

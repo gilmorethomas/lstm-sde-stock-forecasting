@@ -1,4 +1,4 @@
-import logging 
+from lstm_logger import logger as logging
 from os import path, makedirs
 # import plotting module 
 from plotting import plot_all_x_y_combinations

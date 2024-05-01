@@ -1,4 +1,4 @@
-import logging 
+from lstm_logger import logger as logging
 
 from timeseriesmodel import TimeSeriesModel
 import numpy as np

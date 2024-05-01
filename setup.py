@@ -131,7 +131,8 @@ if __name__ == '__main__':
         author_email='gilmoret@vt.edu',
         keywords='lstm-sde, stock market prediction',
         url='',
-        packages=find_packages(exclude=('configs', 'tools', 'demo')),
+        packages=find_packages(where='src', exclude=('configs', 'tools', 'demo')),
+        package_dir={'': 'src'},
         include_package_data=True,
         classifiers=[
             'Operating System :: OS Independent',

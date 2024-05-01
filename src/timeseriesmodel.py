@@ -1,5 +1,5 @@
 from model import Model
-import logging 
+from lstm_logger import logger as logging
 import numpy as np 
 class TimeSeriesModel(Model):
     """Defines a Time Series Model that inherits from model. This class is currently 
