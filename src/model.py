@@ -3,6 +3,7 @@ import pickle
 import logging
 import pandas as pd 
 import numpy as np
+import copy
 from plotting import plot_all_x_y_combinations, plot_multiple_dfs
 from scaler import Scaler
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score

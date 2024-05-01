@@ -168,7 +168,7 @@ class LSTM(TimeSeriesModel):
             [data_dict_not_norm[eval_data].dropna(inplace=True) for eval_data in self.evaluation_data_names]
 
             for eval_filter in self.evaluation_data_names:
-                data_dict[eval_filter].loc[: ,y_var + f'_{self.model_name}_{seed_num}'] =train_data_fit_one_seed[eval_filter]
+                data_dict[eval_filter].loc[: ,y_var + f'_{self.model_name}_{seed_num}'] = train_data_fit_one_seed[eval_filter]
                 data_dict_not_norm[eval_filter].loc[: ,y_var + f'_{self.model_name}_{seed_num}'] = self.scaler.inverse_transform(train_data_fit_one_seed[eval_filter])
             self.model_objs.append(model)
         
