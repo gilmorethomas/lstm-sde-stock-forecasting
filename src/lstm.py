@@ -1,4 +1,4 @@
-import logging 
+from lstm_logger import logger as logging
 import numpy as np
 import pandas as pd
 from sklearn.metrics import mean_squared_error
@@ -117,10 +117,10 @@ class LSTM(TimeSeriesModel):
         test_data_input = pd.concat([train_data_to_prepend, test_data_input]).sort_values(by='Date')[y_var]
         x_y_data_dict['test_data'] = self._create_dataset(data=np.array(test_data_input).reshape(-1, 1),
             time_steps=self.model_hyperparameters['time_steps'])
-        x_y_data_dict['evaluation_data'] = {}
         # Iterate over the evaluation data and create the x 
-        for eval_filter in data_dict['evaluation_data']:
-            eval_data_input = data_dict['evaluation_data'][eval_filter][self.x_vars + [y_var]]
+        x_y_data_dict.update({eval_filter: {} for eval_filter in self.evaluation_data_names})
+        for eval_filter in self.evaluation_data_names: 
+            eval_data_input = data_dict[eval_filter][self.x_vars + [y_var]]
             test_data_to_prepend = data_dict['test_data'].iloc[-self.model_hyperparameters['time_steps']:][self.x_vars + [y_var]]
             # If train data is smaller than the time steps, we need to prepend the remaining time steps with the train data
             if len(test_data_to_prepend) < self.model_hyperparameters['time_steps']:
@@ -130,7 +130,7 @@ class LSTM(TimeSeriesModel):
                 test_data_to_prepend = pd.concat([train_data_to_prepend, test_data_to_prepend])
             eval_data_input = pd.concat([test_data_to_prepend, eval_data_input]).sort_values(by='Date')[y_var]
             # Append the previous time steps to the test data using the time_steps parameter and data_dictnormalizedscaled']['all_data']
-            x_y_data_dict['evaluation_data'][eval_filter] = self._create_dataset(data=np.array(eval_data_input).reshape(-1, 1),
+            x_y_data_dict[eval_filter] = self._create_dataset(data=np.array(eval_data_input).reshape(-1, 1),
                 time_steps=self.model_hyperparameters['time_steps'])
             
         # Temporarily remove lambdas because these are not pkl-able for multiprocessing
@@ -152,7 +152,8 @@ class LSTM(TimeSeriesModel):
         # Need to prepend nans for each model result
         nan_array = np.array([[np.nan] * self.model_hyperparameters['time_steps']]).T
         # Iterate over the output data and add it to the train data fit array
-        fit_data = {'train_predict': {}, 'test_predict': {}, 'evaluation_predict': {eval_filter: {} for eval_filter in data_dict['evaluation_data']}}
+        fit_data = {'train_predict': {}, 'test_predict': {}}
+        fit_data.update({f'{eval_filter}_predict' : {} for eval_filter in self.evaluation_data_names})
 
         # Build the output data
         for seed_num, model, train_data_fit_one_seed in out_data:
@@ -164,10 +165,11 @@ class LSTM(TimeSeriesModel):
             # drop nans to account for windows for rollback data
             data_dict['train_data'].dropna(inplace=True)
             data_dict_not_norm['train_data'].dropna(inplace=True) 
+            [data_dict_not_norm[eval_data].dropna(inplace=True) for eval_data in self.evaluation_data_names]
 
-            for eval_filter in train_data_fit_one_seed['evaluation_predict']:
-                data_dict['evaluation_data'][eval_filter].loc[: ,y_var + f'_{self.model_name}_{seed_num}'] =train_data_fit_one_seed['evaluation_predict'][eval_filter]
-                data_dict_not_norm['evaluation_data'][eval_filter].loc[: ,y_var + f'_{self.model_name}_{seed_num}'] = self.scaler.inverse_transform(train_data_fit_one_seed['evaluation_predict'][eval_filter])
+            for eval_filter in self.evaluation_data_names:
+                data_dict[eval_filter].loc[: ,y_var + f'_{self.model_name}_{seed_num}'] = train_data_fit_one_seed[eval_filter]
+                data_dict_not_norm[eval_filter].loc[: ,y_var + f'_{self.model_name}_{seed_num}'] = self.scaler.inverse_transform(train_data_fit_one_seed[eval_filter])
             self.model_objs.append(model)
         
         self.test_split_filter = tmp_test_split_filter
@@ -201,12 +203,11 @@ class LSTM(TimeSeriesModel):
             verbose=model_hyperparameters['verbose'])
         # Now predict performance
         logging.info('Predicting performance for train, test, and evaluation data')
-        train_predict = model.predict(x_y_data_dict['train_data'][0]) 
-        test_predict = model.predict(x_y_data_dict['test_data'][0])
-        evaluation_predict = {}
-        for eval_filter in x_y_data_dict['evaluation_data']:
-            evaluation_predict[eval_filter] = model.predict(x_y_data_dict['evaluation_data'][eval_filter][0])
-        predictions = {'train_predict': train_predict, 'test_predict': test_predict, 'evaluation_predict': evaluation_predict}
+        predictions = {}
+        predictions['train_predict'] = model.predict(x_y_data_dict['train_data'][0]) 
+        predictions['test_predict'] = model.predict(x_y_data_dict['test_data'][0])
+        for eval_filter in self.evaluation_data_names:
+            predictions[eval_filter] = model.predict(x_y_data_dict[eval_filter][0])
         logging.info('Done predicting performance for train, test, and evaluation data')
 
         return seed_num, model, predictions

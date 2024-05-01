@@ -4,7 +4,7 @@ import torch
 from torch import nn
 from sklearn.preprocessing import MinMaxScaler
 from torch.utils.data import TensorDataset, DataLoader
-import logging
+from lstm_logger import logger as logging
 import multiprocessing
 import matplotlib.pyplot as plt
 from sklearn.calibration import calibration_curve

@@ -1,4 +1,4 @@
-import logging 
+from lstm_logger import logger as logging
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 
 class Scaler:

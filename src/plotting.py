@@ -5,7 +5,7 @@ import plotly.express as px
 import pandas as pd
 import numpy as np
 import os
-import logging
+from lstm_logger import logger as logging
 from itertools import product 
 pio.renderers.default='browser'
 
