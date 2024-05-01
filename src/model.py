@@ -38,6 +38,7 @@ class Model():
         self.test_split_filter = test_split_filter
         self.train_split_filter = train_split_filter
         self.evaluation_filters = evaluation_filters
+        self.evaluation_data_names = list(evaluation_filters.keys())
         self.save_dir = save_dir
         if not path.exists(save_dir):
             logging.info(f"Creating save directory {save_dir}")
@@ -65,7 +66,6 @@ class Model():
         self.scaler.fit(data[self.y_vars])
 
         self.data_scaled = self.data.copy(deep=True)
-        #self.data_scaled[self.y_vars] = self.scaler.transform(data[self.y_vars], df_name='all_data')
         self.data_scaled[self.y_vars] = self.scaler.transform(data[self.y_vars])
         self._build_model_response_dict()
         # Save scaled and unscaled data
@@ -91,13 +91,14 @@ class Model():
         _, self.data_dict['normalized']['train_data'] = self._add_rollup_data(data_dict['normalized']['train_data'])
         _, self.data_dict['not_normalized']['test_data'] = self._add_rollup_data(data_dict['not_normalized']['test_data'])
         _, self.data_dict['normalized']['test_data'] = self._add_rollup_data(data_dict['normalized']['test_data'])
-        for k, v in data_dict['not_normalized']['evaluation_data'].items():
-            _, self.data_dict['not_normalized']['evaluation_data'][k] = self._add_rollup_data(v)
-        for k, v in data_dict['normalized']['evaluation_data'].items():
-            _, self.data_dict['normalized']['evaluation_data'][k] = self._add_rollup_data(v)
+        for eval_name in self.evaluation_data_names:
+            _, self.data_dict['not_normalized'][eval_name] = self._add_rollup_data(self.data_dict['not_normalized'][eval_name])
+            _, self.data_dict['normalized'][eval_name] = self._add_rollup_data(self.data_dict['normalized'][eval_name])
 
-
-        self._plot_train_data()
+        self._plot_fit('train_data')
+        self._plot_fit('test_data')
+        [self._plot_fit(eval_name) for eval_name in self.evaluation_data_names]
+        #self._plot_fit('evaluation_data')
         self._print_train_end_message()
     def _build_model_response_dict(self):
         # Build model response raw list from y_vars with model name and number of sims appended
@@ -109,6 +110,7 @@ class Model():
         # Now unscale the data
         for k, v in data_dict.items():
             # check if v is a dataframe 
+            logging.error("need to fix the implementation of scaling")
             if isinstance(v, pd.DataFrame):
                 data_dict[k][all_resps] = self.scaler.inverse_transform(data_dict[k][all_resps])
             # nested dictionary
@@ -149,16 +151,18 @@ class Model():
                 'all_data' : self.data, 
                 'train_data': train_data, 
                 'test_data': test_data, 
-                'evaluation_data' : evaluation_data
+                #'evaluation_data' : evaluation_data
             },
             'normalized' : 
             {
                 'all_data' : self.data_scaled, 
                 'train_data': train_data_scaled, 
                 'test_data': test_data_scaled, 
-                'evaluation_data' : evaluation_data_scaled
+                #'evaluation_data' : evaluation_data_scaled
             }
         }
+        self.data_dict['not_normalized'].update(evaluation_data)
+        self.data_dict['normalized'].update(evaluation_data_scaled)
 
         # Add the evaluation data to the scaler
         self._plot_test_train_split()
@@ -168,9 +172,7 @@ class Model():
         # Build a temporary dictionary of all the data splits, including train, test, and eval
         # This will be used to plot the data
 
-        all_data = {'train_data': self.data_dict['not_normalized']['train_data'], 'test_data': self.data_dict['not_normalized']['test_data']}
-        all_data.update(self.data_dict['not_normalized']['evaluation_data'])
-        plot_multiple_dfs(all_data, 
+        plot_multiple_dfs(self.data_dict['not_normalized'], 
             title='Train, Test, and Evaluation Data Split',
             x_cols=self.x_vars, 
             y_cols=self.y_vars, 
@@ -236,14 +238,16 @@ class Model():
         return processed_repsonses, response_data
         #self.train_data_fit_scaled[model_cols_to_scale] = self.scaler.unscale_data(self.train_data_fit[model_cols_to_scale], model_cols_to_scale)
 
-    def _plot_train_data(self, data_type='train_data', norm = 'not_normalized'):
+    def _plot_fit(self, data_type='train_data', norm = 'not_normalized'):
         # Plots the train data fit for each model along with the train data
         # This should be used to validate that the model is fitting the data correctly
         # Build a dictionary of the columns that are not x_vars
         logging.info(f'Plotting {data_type}')
         # Byuild a dictionary with dataframes with one column each 
-        all_data = {col: self.data_dict[norm][data_type][self.x_vars + [col]] for col in self.y_vars + self.model_responses['processed'] + self.model_responses['raw']}
-
+        if data_type in ['train_data', 'test_data'] + self.evaluation_data_names:
+            all_data = {col: self.data_dict[norm][data_type][self.x_vars + [col]] for col in self.y_vars + self.model_responses['processed'] + self.model_responses['raw']}
+        else: 
+            raise NotImplementedError("Plotting overlaid datasets from different periods not enabled yet")
         # Rename the columns with {y_var}_{model_name}_{seed} to be {y_var}. This is so we can pass the 
         for key in all_data.keys():
             cols = {key: col.split('_')[0] for col in all_data[key].columns if col not in self.x_vars}
@@ -260,7 +264,7 @@ class Model():
             y_cols=self.y_vars,
             plot_type='line', 
             output_dir=path.join(self.save_dir, 'model_predictions'),
-            output_name=self.model_name + '_all_models', 
+            output_name=self.model_name + f'{data_type}_all_models', 
             save_png=self.save_png, 
             save_html=self.save_html,
             add_split_lines=False)
@@ -272,7 +276,7 @@ class Model():
             y_cols=self.y_vars,
             plot_type='line', 
             output_dir=path.join(self.save_dir, 'model_predictions'),
-            output_name=self.model_name + '_all_models_processed', 
+            output_name=self.model_name + f'{data_type}_all_models_processed', 
             save_png=self.save_png, 
             save_html=self.save_html,
             add_split_lines=False)
@@ -356,10 +360,9 @@ class Model():
             self.model_performance['test'] = test_performance
         else:
             logging.error('Test Data Fit Cannot be None')
-        if data_dict['evaluation_data'] is not None:
-            for k, v in data_dict['evaluation_data'].items():
-                eval_performance = self._calculate_model_performance(v)
-                self.model_performance[k] = eval_performance
+        for eval_name in self.evaluation_data_names:
+            eval_performance = self._calculate_model_performance(data_dict[eval_name])
+            self.model_performance[eval_name] = eval_performance
         else:
             logging.error('Evaluation Data Fit Cannot be None')       
         self._write_output_csvs()
