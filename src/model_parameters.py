@@ -109,8 +109,8 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
             'lstm_sde_1' : {
                 'model_hyperparameters': {
                     'num_sims' : 1,
-                    'num_epochs' : 2, 
-                    'window_size' : 10,
+                    'num_epochs' : 1, 
+                    'window_size' : 2,
                     'batch_size' : 32,
                     'shuffle' : True,
                     'd_lstm' : 64, # dimension of the LSTM network

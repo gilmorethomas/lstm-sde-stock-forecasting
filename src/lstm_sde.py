@@ -15,6 +15,7 @@ from plotting import plot, finalize_plot
 from timeseriesmodel import TimeSeriesModel
 from memory_profiler import profile
 import copy
+from itertools import product
 
 class SDEBlock(nn.Module):
     """_summary_
@@ -151,12 +152,15 @@ class LSTMSDE_to_train(TimeSeriesModel):
             self.model_hyperparameters = self._set_hyperparameter_defaults(self.model_hyperparameters)
             self._unpack_model_params(self.model_hyperparameters)
             self.save_dir = save_dir
-            # Model dictionary 
-            self.lstm_sdes = {y_var : LSTMSDE(self.d_input, self.d_lstm, self.d_lat, self.num_layers, self.t_sde, self.n_sde, self.loss_fn) for y_var in self.y_vars}
-
+            # Model dictionary. Primary key is y var, secondary is sed number
+            self.lstm_sdes = {y_var : {seed_num: LSTMSDE(self.d_input, self.d_lstm, self.d_lat, self.num_layers, self.t_sde, self.n_sde, self.loss_fn) for seed_num in range(self.num_sims)} for y_var in self.y_vars}
             # Set the remaining hyperparameters, which require instantiation of the model
             self.optimizers = {} 
-            [self._set_optimizer_defaults(y_var=y_var, model=self.lstm_sdes[y_var]) for y_var in self.y_vars]
+            y_var_seed_product = product(self.y_vars, range(self.num_sims))
+            [self._set_optimizer_defaults(
+                y_var=y_var, 
+                model=self.lstm_sdes[y_var][seed_num]) 
+                for y_var, seed_num in y_var_seed_product]
     def _set_hyperparameter_defaults(self, model_params):
         if 'loss_fn' not in model_params:
             logging.warning(f"No loss function specified. Defaulting to MSELoss")
@@ -263,17 +267,19 @@ class LSTMSDE_to_train(TimeSeriesModel):
         # iterate over each of the dataloaders 
         
         # Train on the train data 
-        losses = {}
-        y_pred, rmse = {}, {}
-        for y_var in self.y_vars: 
-            losses[y_var] = self._train(model=self.lstm_sdes[y_var],
+        losses = {y_var: {seed_num: [] for seed_num in range(self.num_sims)} for y_var in self.y_vars}
+        y_pred = copy.deepcopy(losses)
+        rmse = copy.deepcopy(losses)
+        y_vars_seeds = product(self.y_vars, range(self.num_sims))
+        for y_var, seed_num in y_vars_seeds: 
+            losses[y_var][seed_num] = self._train(model=self.lstm_sdes[y_var][seed_num],
                         dataloader=self.lstm_data[y_var]['dataloaders']['train'], 
                         optimizer=self.optimizers[y_var], 
                         n_epochs=self.model_hyperparameters['num_epochs'], 
                         loss_fn=self.loss_fn)
-            y_pred[y_var], rmse[y_var] = {}, {}
+            y_pred[y_var][seed_num], rmse[y_var][seed_num] = {}, {}
             for datakey in self.lstm_data[y_var]['data']['x'].keys():
-                y_pred[y_var], rmse[y_var] = self._eval(model=self.lstm_sdes[y_var], 
+                y_pred[y_var][seed_num][datakey], rmse[y_var][seed_num][datakey] = self._eval(model=self.lstm_sdes[y_var][seed_num], 
                    loss_fn=self.loss_fn, 
                    x_input=self.lstm_data[y_var]['tensors']['x'][datakey], 
                    y_target=self.lstm_data[y_var]['tensors']['y'][datakey])
@@ -282,6 +288,7 @@ class LSTMSDE_to_train(TimeSeriesModel):
     
         return self._build_output_data(y_pred, self.data_dict) 
     def _build_output_data(self, out_data, data_dict):
+
         logging.warning('Not implemented yet, need to build the output data like the other models do')
         return self.data_dict
     @timer_decorator

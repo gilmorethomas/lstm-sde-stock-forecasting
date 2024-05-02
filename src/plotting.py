@@ -29,15 +29,14 @@ class PlottingConstants():
         '#bcbd22',  # curry yellow-green
         '#17becf'   # blue-teal
     ]
-    debug_plots = False
 
-def plot_all_x_y_combinations(df, x_cols, y_cols, plot_type, output_dir, output_name, save_png=True, save_html=True, debug_plots=PlottingConstants.debug_plots):
+def plot_all_x_y_combinations(df, x_cols, y_cols, plot_type, output_dir, output_name, save_png=True, save_html=True):
     # Plot all x, y combinations
     if x_cols is None:
-        logging.info("No x columns provided, using all columns") if debug_plots else None
+        logging.debug("No x columns provided, using all columns") 
         x_cols = df.columns
     if y_cols is None:
-        logging.info("No y columns provided, using all columns") if debug_plots else None
+        logging.debug("No y columns provided, using all columns") 
         y_cols = df.columns
     for x_col, y_col in product(x_cols, y_cols):
         if x_col == y_col:
@@ -120,7 +119,7 @@ def plot_multiple_dfs(trace_name_df_dict, title, x_cols, y_cols, plot_type, outp
 
         finalize_plot(fig=fig, title=out_title, filename=f'{output_name}_{x_col}_vs_{y_col}' , output_dir=output_dir, save_png=save_png, save_html=save_html)
 
-def plot(df, x_col, y_col, plot_type, trace_name, fig=None, color=None, debug_plots=PlottingConstants.debug_plots):
+def plot(df, x_col, y_col, plot_type, trace_name, fig=None, color=None):
     """Plots a single x, y combination
     
     Args:
@@ -132,7 +131,7 @@ def plot(df, x_col, y_col, plot_type, trace_name, fig=None, color=None, debug_pl
         fig (plotly.graph_objects.Figure, optional): The figure to add the plot to. Defaults to None. If you pass a figure, it will add the plot to the figure and return the figure.
     """
     if fig is not None: 
-        logging.info(f"Adding plot {x_col} vs {y_col} to existing figure with name {trace_name}") if debug_plots else None
+        logging.debug(f"Adding plot {x_col} vs {y_col} to existing figure with name {trace_name}") 
     else: 
         # Create a new plotly graph objects figure
         fig = go.Figure()

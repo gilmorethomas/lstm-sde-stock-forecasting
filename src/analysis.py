@@ -10,6 +10,7 @@ from geometricbrownianmotion import GeometricBrownianMotion
 from lstm_sde import LSTMSDE_to_train as LSTMSDE
 from numpy.random import RandomState
 import tensorflow as tf
+import torch
 class AnalysisManager(): 
     # Create an analysis manager whose job is to manage the analysis objects
     # It should store a list of analysis objects and call the methods of the analysis objects
@@ -23,6 +24,7 @@ class AnalysisManager():
         save_png = True, 
         save_html=True, 
         overwrite_out_dir=True,
+        load_previous_results=False,
         **kwargs): 
         """
         Creates the analysis maanger 
@@ -33,15 +35,17 @@ class AnalysisManager():
         self.analysis_objects_dict = {}
         self.raw_dir = raw_dir
         # Create a directory called at output_dir/output 
+        self.load_pervious_results = load_previous_results
         self.output_dir = self._override_output_dir(output_dir, overwrite_out_dir=overwrite_out_dir)
         self._random_state_mgr = RandomState(master_seed)
         self.master_seed = master_seed
         tf.random.set_seed(master_seed)
+        torch.manual_seed(master_seed)
         self.save_png = save_png
         self.save_html = save_html
-    def _override_output_dir(self, output_dir, overwrite_out_dir=True):
+    def _override_output_dir(self, output_dir, overwrite_out_dir=True, load_previous_results=False):
         outdir = path.join(output_dir, 'output_v0')
-        if path.exists(outdir) and overwrite_out_dir:
+        if (path.exists(outdir) and overwrite_out_dir) or (path.exists(outdir) and load_previous_results):
             # If the output directory exists, roll the output directory to output_v{version_number}, 
             # where version number is the next available version number
 
@@ -52,9 +56,10 @@ class AnalysisManager():
                     version_number += 1
             # Create the new output directory and override outdir
             outdir = path.join(output_dir, f'output_v{version_number}')
-        logging.info(f"Creating output directory {outdir}")
+        logging.debug(f"Creating output directory {outdir}")
         if not path.exists(outdir):
             makedirs(outdir)
+
         return outdir
 
     def set_preprocessing_callback(self, preprocessing_callback):
@@ -299,7 +304,7 @@ class Analysis():
         # Validate the models dictionary. Make sure that the specified models are models 
         # that exist in pytorch, sklearn, or other libraries that we are using
         # If the models are not valid, raise an exception
-        logging.info("Validating models")
+        logging.debug("Validating models")
 
     def _set_models(self, models_dict):
         # set models for the analysis object

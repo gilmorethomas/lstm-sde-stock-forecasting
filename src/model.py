@@ -55,7 +55,7 @@ class Model():
         self.save_html = save_html
         self.save_png = save_png
         self.seed = seed
-        logging.info('Using the first y var as the base column for scaling')
+        logging.debug('Using the first y var as the base column for scaling')
         # Assign all the dataframes that are expected to be filled later 
         self.model_performance = {}
 
