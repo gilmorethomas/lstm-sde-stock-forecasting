@@ -1,4 +1,5 @@
 from lstm_logger import logger as logging
+from project_globals import DataNames as DN
 import pandas as pd
 import numpy as np
 import torch
@@ -273,19 +274,35 @@ class LSTMSDE_to_train(TimeSeriesModel):
         y_vars_seeds = product(self.y_vars, range(self.num_sims))
         for y_var, seed_num in y_vars_seeds: 
             losses[y_var][seed_num] = self._train(model=self.lstm_sdes[y_var][seed_num],
-                        dataloader=self.lstm_data[y_var]['dataloaders']['train_data'], 
+                        dataloader=self.lstm_data[y_var][DN.dataloaders][DN.train_data], 
                         optimizer=self.optimizers[y_var], 
                         n_epochs=self.model_hyperparameters['num_epochs'], 
                         loss_fn=self.loss_fn)
             y_pred[y_var][seed_num], rmse[y_var][seed_num] = {}, {}
-            for datakey in self.lstm_data[y_var]['data']['x'].keys():
-                y_pred[y_var][seed_num][datakey], rmse[y_var][seed_num][datakey] = self._eval(model=self.lstm_sdes[y_var][seed_num], 
-                   loss_fn=self.loss_fn, 
-                   x_input=self.lstm_data[y_var]['tensors']['x'][datakey], 
-                   y_target=self.lstm_data[y_var]['tensors']['y'][datakey])
+            # evaluate train
+                y_pred[y_var][seed_num][datakey], rmse[y_var][seed_num]['train'] = self._eval(
+                    datatype = 'train', model=self.lstm_sdes[y_var][seed_num], 
+                    loss_fn=self.loss_fn, 
+                    x_input=self.lstm_data[y_var]['tensors']['x']['train'], 
+                    y_target=self.lstm_data[y_var]['tensors']['y']['train'])
+            # evaluate test 
+                y_pred[y_var][seed_num][datakey], rmse[y_var][seed_num]['train'] = self._eval(
+                    datatype = 'test', model=self.lstm_sdes[y_var][seed_num], 
+                    loss_fn=self.loss_fn, 
+                    x_input=self.lstm_data[y_var]['tensors']['x']['test'], 
+                    y_target=self.lstm_data[y_var]['tensors']['y']['test'])
+            # evaluate evaluation_periods 
+            for eval_name in self.evaluation_data_names:
+                y_pred[y_var][seed_num][eval_name], rmse[y_var][seed_num]['train'] = self._eval(
+                    datatype = 'evaluation', 
+                    model=self.lstm_sdes[y_var][seed_num], 
+                    loss_fn=self.loss_fn, 
+                    x_input=self.lstm_data[y_var]['tensors']['x'][eval_name], 
+                    y_target=self.lstm_data[y_var]['tensors']['y'][eval_name])
+                
         self.losses_over_time = losses
         self.rmse = rmse 
-        data_dict = self._build_output_data(y_pred, copy.deepcopy(self.data_dict['not_normalized']), copy.deepcopy(self.data_dict['normalized'])) 
+        data_dict = self._build_output_data(y_pred, copy.deepcopy(self.data_dict[DN.not_normalized]), copy.deepcopy(self.data_dict[DN.normalized])) 
         super().fit(data_dict)
     def _build_output_data(self, out_data, data_dict_not_norm, data_dict):
         """Builds the output data. Relies on the fact that the model produces normalized output data.
@@ -310,12 +327,12 @@ class LSTMSDE_to_train(TimeSeriesModel):
             # Pandas concatatenate the data into the
             this_data = out_data[y_var][seed_num]
             # Need to reshape the numpy array to have shape (n, 1)
-            train_data_to_insert = this_data['train_data'].numpy().reshape(-1, 1)
-            test_data_to_insert = np.concatenate([nan_array, this_data['test_data'].numpy().reshape(-1, 1)])
-            data_dict['train_data'][f'{y_var}_{self.model_name}_{seed_num}'] = train_data_to_insert
-            data_dict['test_data'][f'{y_var}_{self.model_name}_{seed_num}'] = test_data_to_insert
-            data_dict_not_norm['test_data'][f'{y_var}_{self.model_name}_{seed_num}'] = self.scaler.inverse_transform(test_data_to_insert)
-            data_dict_not_norm['train_data'][f'{y_var}_{self.model_name}_{seed_num}'] = self.scaler.inverse_transform(train_data_to_insert)
+            train_data_to_insert = this_data[DN.train_data].numpy().reshape(-1, 1)
+            test_data_to_insert = np.concatenate([nan_array, this_data[DN.test_data].numpy().reshape(-1, 1)])
+            data_dict[DN.train_data][f'{y_var}_{self.model_name}_{seed_num}'] = train_data_to_insert
+            data_dict[DN.test_data][f'{y_var}_{self.model_name}_{seed_num}'] = test_data_to_insert
+            data_dict_not_norm[DN.test_data][f'{y_var}_{self.model_name}_{seed_num}'] = self.scaler.inverse_transform(test_data_to_insert)
+            data_dict_not_norm[DN.train_data][f'{y_var}_{self.model_name}_{seed_num}'] = self.scaler.inverse_transform(train_data_to_insert)
             # drop nans to account for windows for rollback data
 
             for eval_filter in self.evaluation_data_names:
@@ -324,7 +341,7 @@ class LSTMSDE_to_train(TimeSeriesModel):
                 data_dict_not_norm[eval_filter][f'{y_var}_{self.model_name}_{seed_num}'] = self.scaler.inverse_transform(eval_data_to_insert)
         data_dict = drop_nans_from_data_dict(data_dict, self, self.fit)
         data_dict_not_norm = drop_nans_from_data_dict(data_dict_not_norm, self, self.fit)
-        return {'normalized' : data_dict, 'not_normalized' : data_dict_not_norm}
+        return {DN.normalized : data_dict, DN.not_normalized : data_dict_not_norm}
     @timer_decorator
     def _train(self, model, dataloader, optimizer, n_epochs, loss_fn):
         """Trains the model 
@@ -357,7 +374,7 @@ class LSTMSDE_to_train(TimeSeriesModel):
         return losses_over_time
     def save(self):
         logging.info('LSTM SDE save not implemented')
-    def _eval(self, model, loss_fn, x_input, y_target):
+    def _eval(self, eval_type, model, loss_fn, x_input, y_target):
         """Tests the model
 
         Args:
@@ -369,10 +386,13 @@ class LSTMSDE_to_train(TimeSeriesModel):
             _type_: _description_
         """    
         model.eval()
-        with torch.no_grad():
-            y_pred_train = model(x_input)
-            y_pred_train = y_pred_train.squeeze()  # remove extra dimensions from outputs
-            rmse = np.sqrt(loss_fn(y_pred_train, y_target))
+        if eval_type == 'evaluation': 
+            y_pred_train, rmse = predict_future_steps()
+        else: 
+            with torch.no_grad():
+                y_pred_train = model(x_input)
+                y_pred_train = y_pred_train.squeeze()  # remove extra dimensions from outputs
+                rmse = np.sqrt(loss_fn(y_pred_train, y_target))
         #print("Epoch %d: train RMSE %.4f, test RMSE %.4f" % (epoch, train_rmse, test_rmse))
         logging.error("Need to fix eval to pull in predict_future_steps")
         return y_pred_train, rmse
@@ -415,12 +435,12 @@ class LSTMSDE_to_train(TimeSeriesModel):
             # Create PyTorch data loaders for the train and test data
             
             # create prepended data to account for time windowing
-            train_data_to_prepend = self.data_dict['normalized']['train_data'].iloc[-self.model_hyperparameters['time_steps']:][self.x_vars + [var]]
-            test_data_to_prepend = self.data_dict['normalized']['test_data'].iloc[-self.model_hyperparameters['time_steps']:][self.x_vars + [var]]
+            train_data_to_prepend = self.data_dict[DN.normalized][DN.train_data].iloc[-self.model_hyperparameters['time_steps']:][self.x_vars + [var]]
+            test_data_to_prepend = self.data_dict[DN.normalized][DN.test_data].iloc[-self.model_hyperparameters['time_steps']:][self.x_vars + [var]]
 
-            train_data_df = pd.concat([train_data_to_prepend, self.data_dict['normalized']['train_data']]).sort_values(by='Date')
+            train_data_df = pd.concat([train_data_to_prepend, self.data_dict[DN.normalized][DN.train_data]]).sort_values(by='Date')
             train_data = np.array(train_data_df[var]).reshape(-1, 1)
-            test_data = np.array(self.data_dict['normalized']['test_data'][var]).reshape(-1, 1)
+            test_data = np.array(self.data_dict[DN.normalized][DN.test_data][var]).reshape(-1, 1)
             model_dict = {} 
             data = {x: {} for x in ['x', 'y']}
             tensors = {x: {} for x in ['x', 'y']}
@@ -430,20 +450,20 @@ class LSTMSDE_to_train(TimeSeriesModel):
             x_torch = torch.from_numpy(x)
             y_torch = torch.from_numpy(y)
             dl = DataLoader(TensorDataset(x_torch, y_torch), batch_size=batch_size, shuffle=shuffle)
-            data['x']['train_data'], data['y']['train_data'] = x, y
-            tensors['x']['train_data'], tensors['y']['train_data'] = x_torch, y_torch
-            dataloaders['train_data'] = dl 
+            data['x'][DN.train_data], data['y'][DN.train_data] = x, y
+            tensors['x'][DN.train_data], tensors['y'][DN.train_data] = x_torch, y_torch
+            dataloaders[DN.train_data] = dl 
 
             x, y =   LSTMSDE_to_train._create_dataset(test_data, window_size)
             x_torch = torch.from_numpy(x)
             y_torch = torch.from_numpy(y)
-            data['x']['test_data'], data['y']['test_data'] = x, y
-            tensors['x']['test_data'], tensors['y']['test_data'] = x_torch, y_torch
+            data['x'][DN.test_data], data['y'][DN.test_data] = x, y
+            tensors['x'][DN.test_data], tensors['y'][DN.test_data] = x_torch, y_torch
             dl = DataLoader(TensorDataset(x_torch, y_torch), batch_size=batch_size, shuffle=shuffle)
-            dataloaders['test_data'] = dl
+            dataloaders[DN.test_data] = dl
 
             for eval_filter in self.evaluation_filters:
-                eval_data_df = pd.concat([test_data_to_prepend, self.data_dict['normalized'][eval_filter]]).sort_values(by='Date')
+                eval_data_df = pd.concat([test_data_to_prepend, self.data_dict[DN.normalized][eval_filter]]).sort_values(by='Date')
                 eval_data = np.array(eval_data_df[var]).reshape(-1, 1)
                 # Create the dataset and targets for each of the eval sets 
                 eval_data, eval_targets = LSTMSDE_to_train._create_dataset(eval_data, window_size)
@@ -454,7 +474,7 @@ class LSTMSDE_to_train(TimeSeriesModel):
                 tensors['x'][eval_filter] = eval_data_tensor
                 tensors['y'][eval_filter] = eval_targets_tensor
                 dataloaders[eval_filter] = DataLoader(TensorDataset(eval_data_tensor, eval_targets_tensor), batch_size=batch_size, shuffle=shuffle)
-            total_model_dict[var] = {'data' : data, 'tensors' : tensors, 'dataloaders' : dataloaders}
+            total_model_dict[var] = {'data' : data, 'tensors' : tensors, DN.dataloaders : dataloaders}
         return total_model_dict
         # cre
 

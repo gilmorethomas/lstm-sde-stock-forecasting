@@ -1,4 +1,6 @@
 from lstm_logger import logger as logging
+from project_globals import TimeSeriesGlobals as TSGlobals
+from project_globals import DataNames as DN
 
 from timeseriesmodel import TimeSeriesModel
 import numpy as np
@@ -70,7 +72,7 @@ class GeometricBrownianMotion(TimeSeriesModel):
             self.model_hyperparameters['window_size'] = 100
         elif self.model_hyperparameters['window_size'] is None:
             logging.info('No time window specified in model hyperparameters, using all data')
-            self.model_hyperparameters['window_size'] = self.data_dict['not_normalized']['train_data'].shape[0]
+            self.model_hyperparameters['window_size'] = self.data_dict[DN.normalized][DN.train_data].shape[0]
         if 'dt' not in self.model_hyperparameters: 
             logging.info('No time step specified in model hyperparameters, using default of 10e-3')
             self.model_hyperparameters['dt'] = 10e-3
@@ -86,13 +88,13 @@ class GeometricBrownianMotion(TimeSeriesModel):
         if self.model_hyperparameters['calculate_mu'] or self.model_hyperparameters['calculate_sigma']:
             logging.info("Calculating mu and sigma")
             #
-            for col in self.data_dict['not_normalized']['train_data'][self.y_vars]:
+            for col in self.data_dict[DN.not_normalized][DN.train_data][self.y_vars]:
                 try:
                     # check that the time increment is a day. If not, warn the user that their calculation may not be correct
                     if self.model_hyperparameters['dt'] != 1:
                         logging.warning("Time increment is not a day, so the calculation of mu and sigma may not be correct")
                     # Calculate daily returns
-                    returns = ((self.data_dict['not_normalized']['train_data'][col] / self.data_dict['not_normalized']['train_data'][col].shift(1)) - 1)[1:]
+                    returns = ((self.data_dict[DN.not_normalized][DN.train_data][col] / self.data_dict[DN.not_normalized][DN.train_data][col].shift(1)) - 1)[1:]
                     self.train_params['mu'][col] = np.mean(returns[-self.model_hyperparameters['window_size']:])
                     self.train_params['sigma'][col] = np.std(returns[-self.model_hyperparameters['window_size']:])
                     logging.info(f'Calculated mu={self.train_params["mu"][col]}, sigma={self.train_params["sigma"][col]} for {col}')
@@ -101,7 +103,7 @@ class GeometricBrownianMotion(TimeSeriesModel):
 
         else:
             logging.info("Using provided mu and sigma")
-            for col in self.data_dict['not_normalized']['train_data'][self.y_vars]:
+            for col in self.data_dict[DN.not_normalized][DN.train_data][self.y_vars]:
                 self.train_params['mu'][col] = self.model_hyperparameters['mu']
                 self.train_params['sigma'][col] = self.model_hyperparameters['sigma']
 
@@ -121,35 +123,35 @@ class GeometricBrownianMotion(TimeSeriesModel):
         fit_data = {}
         data_dict = copy.deepcopy(self.data_dict)
         # Simulate GBM and add to the data dictionary as new columns for each seed 
-        gbm_train = self._simulate_gbm_train(self.data_dict['not_normalized']['train_data'])
-        gbm_test = self._simulate_gbm_train(self.data_dict['not_normalized']['test_data'])
-        data_dict['not_normalized']['train_data'] = data_dict['not_normalized']['train_data'].merge(gbm_train, on='Days_since_start')
-        data_dict['not_normalized']['test_data'] = data_dict['not_normalized']['test_data'].merge(gbm_test, on='Days_since_start')
+        gbm_train = self._simulate_gbm_train(self.data_dict[DN.not_normalized][DN.train_data])
+        gbm_test = self._simulate_gbm_train(self.data_dict[DN.not_normalized][DN.test_data])
+        data_dict[DN.not_normalized][DN.train_data] = data_dict[DN.not_normalized][DN.train_data].merge(gbm_train, on='Days_since_start')
+        data_dict[DN.not_normalized][DN.test_data] = data_dict[DN.not_normalized][DN.test_data].merge(gbm_test, on='Days_since_start')
 
         norm_dataset = {}
         # Normalize the data
         # gbm_train_norm = gbm_train.copy(deep=True)
         # gbm_test_norm = gbm_test.copy(deep=True)
-        # self.scaler.fit(gbm_train_norm[self.model_responses['raw']])
-        # self.scaler.fit(gbm_test_norm[self.model_responses['raw']])
+        # self.scaler.fit(gbm_train_norm[self.model_responses[DN.raw]])
+        # self.scaler.fit(gbm_test_norm[self.model_responses[DN.raw]])
         gbm_train_norm = gbm_train.copy(deep=True)
         gbm_test_norm = gbm_test.copy(deep=True)
-        self.scaler.fit(gbm_train_norm[self.model_responses['raw']])
-        self.scaler.fit(gbm_test_norm[self.model_responses['raw']])
-        gbm_train_norm[self.model_responses['raw']] = self.scaler.transform(gbm_train_norm[self.model_responses['raw']])
-        gbm_test_norm[self.model_responses['raw']] = self.scaler.transform(gbm_test_norm[self.model_responses['raw']])
-        data_dict['normalized']['train_data'] = data_dict['normalized']['train_data'].merge(gbm_train_norm, on='Days_since_start')
-        data_dict['normalized']['test_data'] = data_dict['normalized']['test_data'].merge(gbm_test_norm, on='Days_since_start')
+        self.scaler.fit(gbm_train_norm[self.model_responses[DN.raw]])
+        self.scaler.fit(gbm_test_norm[self.model_responses[DN.raw]])
+        gbm_train_norm[self.model_responses[DN.raw]] = self.scaler.transform(gbm_train_norm[self.model_responses[DN.raw]])
+        gbm_test_norm[self.model_responses[DN.raw]] = self.scaler.transform(gbm_test_norm[self.model_responses[DN.raw]])
+        data_dict[DN.normalized][DN.train_data] = data_dict[DN.normalized][DN.train_data].merge(gbm_train_norm, on='Days_since_start')
+        data_dict[DN.normalized][DN.test_data] = data_dict[DN.normalized][DN.test_data].merge(gbm_test_norm, on='Days_since_start')
         
         # Simulate the evaluation data
         for eval_name in self.evaluation_data_names:
-            gbm_eval = self._simulate_gbm_train(self.data_dict['not_normalized'][eval_name])
-            data_dict['not_normalized'][eval_name] = data_dict['not_normalized'][eval_name].merge(gbm_eval, on='Days_since_start')
+            gbm_eval = self._simulate_gbm_train(self.data_dict[DN.not_normalized][eval_name])
+            data_dict[DN.not_normalized][eval_name] = data_dict[DN.not_normalized][eval_name].merge(gbm_eval, on='Days_since_start')
             # Normalize the data
             gbm_eval_norm = gbm_eval.copy(deep=True)
-            self.scaler.fit(gbm_eval_norm[self.model_responses['raw']])
-            gbm_eval_norm[self.model_responses['raw']] = self.scaler.transform(gbm_eval_norm[self.model_responses['raw']])
-            data_dict['normalized'][eval_name] = data_dict['normalized'][eval_name].merge(gbm_eval_norm, on='Days_since_start')
+            self.scaler.fit(gbm_eval_norm[self.model_responses[DN.raw]])
+            gbm_eval_norm[self.model_responses[DN.raw]] = self.scaler.transform(gbm_eval_norm[self.model_responses[DN.raw]])
+            data_dict[DN.normalized][eval_name] = data_dict[DN.normalized][eval_name].merge(gbm_eval_norm, on='Days_since_start')
             
             #self.scaler.fit(gbm_eval_norm']])
         # Build the dataset for normalized data 
@@ -157,7 +159,7 @@ class GeometricBrownianMotion(TimeSeriesModel):
 
         # Add the data to the data_dict
 
-        #data_dict = {'normalized' : norm_dataset, 'not_normalized' : fit_data}
+        #data_dict = {DN.normalized : norm_dataset, DN.not_normalized : fit_data}
 
         super().fit(data_dict)
     

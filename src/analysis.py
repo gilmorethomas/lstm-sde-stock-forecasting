@@ -1,16 +1,17 @@
-from lstm_logger import logger as logging
-from os import path, makedirs
-# import plotting module 
-from plotting import plot_all_x_y_combinations
-# import tensorflow as tf
-import re
 import os
-from lstm import LSTM 
-from geometricbrownianmotion import GeometricBrownianMotion
-from lstm_sde import LSTMSDE_to_train as LSTMSDE
+from os import path, makedirs
+import re
+import pandas as pd
 from numpy.random import RandomState
 import tensorflow as tf
 import torch
+
+from lstm_logger import logger as logging
+from project_globals import DataNames as DN
+from plotting import plot_all_x_y_combinations
+from lstm import LSTM 
+from geometricbrownianmotion import GeometricBrownianMotion
+from lstm_sde import LSTMSDE_to_train as LSTMSDE
             
 class Analysis(): 
     def __init__(self, dataset_name, dataset_df, x_vars, y_vars, output_directory, seed, preprocessing_callback=None, save_html=True, save_png=True, load_previous_results=False):
@@ -28,8 +29,11 @@ class Analysis():
         if not(path.exists(output_directory)):
             logging.info(f"Creating output directory {output_directory}")
             makedirs(output_directory)
-        
+        if self.load_previous_results:
+            self.load_from_previous_output()
     def preprocess_dataset(self):
+        if self.load_previous_results: 
+            return
         # preprocess the dataset, using the preprocessing_callback if provided
         logging.info(f"Preprocessing dataset for {self.dataset_name} using {self.preprocessing_callback}")
         if self.preprocessing_callback is not None: 
@@ -43,12 +47,13 @@ class Analysis():
         if float64_cols is not None and len(float64_cols) > 0:
             logging.info(f"Converting columns {float64_cols} to float32")
             self.dataset_df[float64_cols] = self.dataset_df[float64_cols].astype('float32')
-
+        self.dataset_df.to_csv(path.join(self.output_directory, f'{DN.all_data}.csv'))
         # Normalize data using minmax scaling
         # self.dataset_df = (self.dataset_df - self.dataset_df.min()) / (self.dataset_df.max() - self.dataset_df.min())
 
 
     def run_analysis(self, run_descriptive=True, run_predictive=True): 
+
         logging.info(f"Running analysis for {self.dataset_name}")
         if run_descriptive: 
             self.run_descriptive()
@@ -192,7 +197,15 @@ class Analysis():
                 x_cols=None, 
                 y_cols=None, 
                 plot_type=plot_type, 
-                output_dir=self.output_dir, 
+                output_dir=self.output_directory, 
                 output_name='Stock Market Data', 
                 save_png=self.save_png, 
                 save_html=self.save_html)
+            
+
+    def load_from_previous_output(self):
+        """Loads datasets and models from previous output
+
+        Args:
+        """        
+        self.dataset_df = pd.read_csv(path.join(self.output_directory, DN.all_data + '.csv'))

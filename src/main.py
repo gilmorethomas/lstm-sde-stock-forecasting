@@ -83,7 +83,7 @@ if __name__ == "__main__":
         save_html=True,
         plotting = {'x_vars': 'Date', 'y_vars': None}, 
         overwrite_out_dir=False,
-        load_previous_results=True # Load previous results, rather than refitting a model
+        load_previous_results=False # Load previous results, rather than refitting a model
         )
     analysis.set_preprocessing_callback(preprocessing_callback)
     # Add the analysis objects to the analysis manager 
