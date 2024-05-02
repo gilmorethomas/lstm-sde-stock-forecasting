@@ -10,7 +10,7 @@ import multiprocessing
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 from sklearn.calibration import calibration_curve
-from utils import timer_decorator
+from utils import timer_decorator, drop_nans_from_data_dict
 from plotting import plot, finalize_plot
 from timeseriesmodel import TimeSeriesModel
 from memory_profiler import profile
@@ -211,9 +211,9 @@ class LSTMSDE_to_train(TimeSeriesModel):
         if 'shuffle' not in model_params:
             logging.warning("No shuffle specified. Defaulting to True")
             model_params['shuffle'] = True
-        if 'window_size' not in model_params:
+        if 'time_steps' not in model_params:
             logging.warning("No window size specified. Defaulting to 30")
-            model_params['window_size'] = 30
+            model_params['time_steps'] = 30
         return model_params 
     def _set_optimizer_defaults(self, model, y_var):
         """Sets default values for hyperparameters of optimizer.
@@ -273,7 +273,7 @@ class LSTMSDE_to_train(TimeSeriesModel):
         y_vars_seeds = product(self.y_vars, range(self.num_sims))
         for y_var, seed_num in y_vars_seeds: 
             losses[y_var][seed_num] = self._train(model=self.lstm_sdes[y_var][seed_num],
-                        dataloader=self.lstm_data[y_var]['dataloaders']['train'], 
+                        dataloader=self.lstm_data[y_var]['dataloaders']['train_data'], 
                         optimizer=self.optimizers[y_var], 
                         n_epochs=self.model_hyperparameters['num_epochs'], 
                         loss_fn=self.loss_fn)
@@ -285,12 +285,46 @@ class LSTMSDE_to_train(TimeSeriesModel):
                    y_target=self.lstm_data[y_var]['tensors']['y'][datakey])
         self.losses_over_time = losses
         self.rmse = rmse 
-    
-        return self._build_output_data(y_pred, self.data_dict) 
-    def _build_output_data(self, out_data, data_dict):
+        data_dict = self._build_output_data(y_pred, copy.deepcopy(self.data_dict['not_normalized']), copy.deepcopy(self.data_dict['normalized'])) 
+        super().fit(data_dict)
+    def _build_output_data(self, out_data, data_dict_not_norm, data_dict):
+        """Builds the output data. Relies on the fact that the model produces normalized output data.
 
-        logging.warning('Not implemented yet, need to build the output data like the other models do')
-        return self.data_dict
+        Note that this is very similar to the LSTM _build_output_data function.
+
+        TODO align this with LSTM class _build_output_data function
+
+        Args:
+            out_data (_type_): _description_
+            data_dict (_type_): _description_
+
+        Returns:
+            _type_: _description_
+        """        
+        # Build empty nans to prepend. Add 1, think thisi s because the data is not counting the prediction for the next day? TODO look into that
+        nan_array = np.array([[np.nan] * (self.model_hyperparameters['time_steps'])]).T
+        # Build the empty structure  
+        outputs_norm = {y_var: {seed_num: [] for seed_num in range(self.num_sims)} for y_var in self.y_vars}
+        outputs = copy.deepcopy(outputs_norm)
+        for y_var, seed_num in product(self.y_vars, range(self.num_sims)):
+            # Pandas concatatenate the data into the
+            this_data = out_data[y_var][seed_num]
+            # Need to reshape the numpy array to have shape (n, 1)
+            train_data_to_insert = this_data['train_data'].numpy().reshape(-1, 1)
+            test_data_to_insert = np.concatenate([nan_array, this_data['test_data'].numpy().reshape(-1, 1)])
+            data_dict['train_data'][f'{y_var}_{self.model_name}_{seed_num}'] = train_data_to_insert
+            data_dict['test_data'][f'{y_var}_{self.model_name}_{seed_num}'] = test_data_to_insert
+            data_dict_not_norm['test_data'][f'{y_var}_{self.model_name}_{seed_num}'] = self.scaler.inverse_transform(test_data_to_insert)
+            data_dict_not_norm['train_data'][f'{y_var}_{self.model_name}_{seed_num}'] = self.scaler.inverse_transform(train_data_to_insert)
+            # drop nans to account for windows for rollback data
+
+            for eval_filter in self.evaluation_data_names:
+                eval_data_to_insert = this_data[eval_filter].numpy().reshape(-1, 1)
+                data_dict[eval_filter][f'{y_var}_{self.model_name}_{seed_num}'] = eval_data_to_insert
+                data_dict_not_norm[eval_filter][f'{y_var}_{self.model_name}_{seed_num}'] = self.scaler.inverse_transform(eval_data_to_insert)
+        data_dict = drop_nans_from_data_dict(data_dict, self, self.fit)
+        data_dict_not_norm = drop_nans_from_data_dict(data_dict_not_norm, self, self.fit)
+        return {'normalized' : data_dict, 'not_normalized' : data_dict_not_norm}
     @timer_decorator
     def _train(self, model, dataloader, optimizer, n_epochs, loss_fn):
         """Trains the model 
@@ -340,10 +374,35 @@ class LSTMSDE_to_train(TimeSeriesModel):
             y_pred_train = y_pred_train.squeeze()  # remove extra dimensions from outputs
             rmse = np.sqrt(loss_fn(y_pred_train, y_target))
         #print("Epoch %d: train RMSE %.4f, test RMSE %.4f" % (epoch, train_rmse, test_rmse))
+        logging.error("Need to fix eval to pull in predict_future_steps")
         return y_pred_train, rmse
+    
+    def predict_future_steps(model, initial_input_data, n_steps):
+        """Predicts n future steps using an autoregressive approach.
+
+        Args:
+            model: The trained model.
+            initial_input_data: The input data to start the predictions.
+            n_steps: The number of future steps to predict.
+
+        Returns:
+            A list of predictions.
+        """
+        input_data = initial_input_data.copy()
+        predictions = []
+
+        for _ in range(n_steps):
+            # Use the model to predict the next step
+            prediction = model.predict(input_data)
+            predictions.append(prediction)
+
+            # Append the prediction to the input data and remove the oldest value
+            input_data = np.append(input_data[1:], prediction)
+
+        return predictions
     #@profile
     def _prefit_functions(self): 
-        window_size = self.model_hyperparameters['window_size']
+        window_size = self.model_hyperparameters['time_steps']
         batch_size = self.model_hyperparameters['batch_size']
         shuffle = self.model_hyperparameters['shuffle']
         total_model_dict = {}
@@ -356,8 +415,8 @@ class LSTMSDE_to_train(TimeSeriesModel):
             # Create PyTorch data loaders for the train and test data
             
             # create prepended data to account for time windowing
-            train_data_to_prepend = self.data_dict['normalized']['train_data'].iloc[-self.model_hyperparameters['window_size']:][self.x_vars + [var]]
-            test_data_to_prepend = self.data_dict['normalized']['test_data'].iloc[-self.model_hyperparameters['window_size']:][self.x_vars + [var]]
+            train_data_to_prepend = self.data_dict['normalized']['train_data'].iloc[-self.model_hyperparameters['time_steps']:][self.x_vars + [var]]
+            test_data_to_prepend = self.data_dict['normalized']['test_data'].iloc[-self.model_hyperparameters['time_steps']:][self.x_vars + [var]]
 
             train_data_df = pd.concat([train_data_to_prepend, self.data_dict['normalized']['train_data']]).sort_values(by='Date')
             train_data = np.array(train_data_df[var]).reshape(-1, 1)
@@ -371,17 +430,17 @@ class LSTMSDE_to_train(TimeSeriesModel):
             x_torch = torch.from_numpy(x)
             y_torch = torch.from_numpy(y)
             dl = DataLoader(TensorDataset(x_torch, y_torch), batch_size=batch_size, shuffle=shuffle)
-            data['x']['train'], data['y']['train'] = x, y
-            tensors['x']['train'], tensors['y']['train'] = x_torch, y_torch
-            dataloaders['train'] = dl 
+            data['x']['train_data'], data['y']['train_data'] = x, y
+            tensors['x']['train_data'], tensors['y']['train_data'] = x_torch, y_torch
+            dataloaders['train_data'] = dl 
 
             x, y =   LSTMSDE_to_train._create_dataset(test_data, window_size)
             x_torch = torch.from_numpy(x)
             y_torch = torch.from_numpy(y)
-            data['x']['test'], data['y']['test'] = x, y
-            tensors['x']['test'], tensors['y']['test'] = x_torch, y_torch
+            data['x']['test_data'], data['y']['test_data'] = x, y
+            tensors['x']['test_data'], tensors['y']['test_data'] = x_torch, y_torch
             dl = DataLoader(TensorDataset(x_torch, y_torch), batch_size=batch_size, shuffle=shuffle)
-            dataloaders['test'] = dl
+            dataloaders['test_data'] = dl
 
             for eval_filter in self.evaluation_filters:
                 eval_data_df = pd.concat([test_data_to_prepend, self.data_dict['normalized'][eval_filter]]).sort_values(by='Date')
@@ -403,7 +462,7 @@ class LSTMSDE_to_train(TimeSeriesModel):
     @staticmethod
     def _create_dataset(dataset, time_step=1): 
             dataX, dataY = [], []
-            for i in range(len(dataset)-time_step-1):
+            for i in range(len(dataset)-time_step):
                 a = dataset[i:(i+time_step), :]
                 dataX.append(a)
                 dataY.append(dataset[i + time_step, 0])

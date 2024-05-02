@@ -365,16 +365,19 @@ class Model():
         # - Any other relevant information
         data_dict = self.data_dict['not_normalized']
         if data_dict['train_data'] is not None:
+            logging.debug('Calculating model performance for train data')
             train_performance = self._calculate_model_performance(data_dict['train_data'])
             self.model_performance['train'] = train_performance
         else:
             logging.error('Train Data Fit Cannot be None')
         if data_dict['test_data'] is not None:
+            logging.debug('Calculating model performance for test data')
             test_performance = self._calculate_model_performance(data_dict['test_data'])
             self.model_performance['test'] = test_performance
         else:
             logging.error('Test Data Fit Cannot be None')
         for eval_name in self.evaluation_data_names:
+            logging.debug(f'Calculating model performance for {eval_name}')
             eval_performance = self._calculate_model_performance(data_dict[eval_name])
             self.model_performance[eval_name] = eval_performance
         self._write_output_csvs()
@@ -397,14 +400,13 @@ class Model():
         metrics_df = pd.DataFrame()
         for y_var in self.y_vars:
             assert y_var in df.columns, f"Response dataframe must contain the y_var {y_var}"
-
             # The key for the metrics_df is the {y_var}_vs_{model_name}
             for model in self.model_responses['processed'] + self.model_responses['raw']:
                 # (TODO) Ultimately have a better way to map model repsonses back to y_vars
                 if y_var not in model:
                     continue
                 assert model in df.columns, f"Response dataframe must contain the model response {model}. Ensure the dataframe contains both raw and processed data."
-                
+                logging.debug(f'Calculating model performance for {model=} {y_var=}')
                 perf = self.__calculate_model_performance_single(df[y_var], df[model])
                 metrics_df[model] = pd.DataFrame(perf, index=[model]).T
                 #metrics_df[f'{y_var}_vs_{model}'] = 
