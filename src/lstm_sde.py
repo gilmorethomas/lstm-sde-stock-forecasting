@@ -469,16 +469,18 @@ class LSTMSDE_to_train(TimeSeriesModel):
             return np.array(dataX), np.array(dataY)
     
     def plot(self, y_col='Close'):
-        these_losses = self.losses_over_time[y_col]
         loss_df = pd.DataFrame()
-        loss_df['Loss'] = these_losses
-        loss_df['Epoch'] = loss_df.index
-        fig = plot(df = loss_df, 
-             x_col = 'Epoch', 
-             y_col = 'Loss', 
-             plot_type = 'line', 
-             trace_name = 'Loss'
-        )
+        for y_var, seed_num in product(self.y_vars, range(self.num_sims)):
+            these_losses = self.losses_over_time[y_col][seed_num]
+            loss_df[f'{y_var}_{seed_num}'] = these_losses
+            loss_df['Epoch'] = loss_df.index
+
+            fig = plot(df = loss_df, 
+                x_col = 'Epoch', 
+                y_col = f'{y_var}_{seed_num}',
+                plot_type = 'line', 
+                trace_name = f'{y_var}_{seed_num}'
+            )
         finalize_plot(fig, 
                        'Losses vs. Epoch', 
                        'train_loss', 

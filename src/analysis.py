@@ -239,7 +239,7 @@ class Analysis():
                     model = LSTM(data=self.dataset_df, 
                         model_hyperparameters=model_dict['library_hyperparameters'],
                         units = model_dict['units'],
-                        save_dir=path.join(self.output_directory, model_name), 
+                        save_dir=path.join(self.output_directory, 'lstm', model_name), 
                         model_name=model_name,
                         x_vars=self.x_vars,
                         y_vars=self.y_vars,
@@ -257,7 +257,7 @@ class Analysis():
                     logging.info(f"Creating GBM model {model_name}")
                     model = GeometricBrownianMotion(data=self.dataset_df,
                         model_hyperparameters=model_dict['model_hyperparameters'], 
-                        save_dir=path.join(self.output_directory, model_name), 
+                        save_dir=path.join(self.output_directory, 'gbm', model_name), 
                         model_name=model_name,
                         x_vars=self.x_vars,
                         y_vars=self.y_vars,
@@ -275,7 +275,7 @@ class Analysis():
                     logging.info(f"Creating LSTM SDE model {model_name}")
                     model = LSTMSDE(data=self.dataset_df,
                         model_hyperparameters=model_dict['model_hyperparameters'], 
-                        save_dir=path.join(self.output_directory, model_name), 
+                        save_dir=path.join(self.output_directory, 'lstm_sde', model_name), 
                         model_name=model_name,
                         x_vars=self.x_vars,
                         y_vars=self.y_vars,
