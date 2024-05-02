@@ -110,8 +110,8 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
                 'model_hyperparameters': {
                     'num_sims' : 1,
                     'num_epochs' : 100, 
-                    'prev_days_for_window' : 30,
-                    'batch_size' : 64,
+                    'window_size' : 2,
+                    'batch_size' : 2,
                     'shuffle' : True,
                     'd_lstm' : 64, # dimension of the LSTM network
                     'd_lat' : 1, # dimension of the latent variable

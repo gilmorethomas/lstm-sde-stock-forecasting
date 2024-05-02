@@ -74,6 +74,16 @@ class Model():
         
         # If you want to scale the data by default by default the data is scaled
 
+    def _unpack_model_params(self, model_params):
+        """Assign model parameters to the class 
+
+        Args:
+            model_params (dict): 
+        """        
+        # Assigns the model parameters to the class
+        for k, v in model_params.items():
+            setattr(self, k, v)
+        
     def fit(self, data_dict):
         """Helper method that overrides self.data with the data dict
 
@@ -127,12 +137,12 @@ class Model():
             if k == 'all_data' :
                 continue
             if isinstance(v, pd.DataFrame):
-                cols = v.select_dtypes(include=['float64']).columns
+                cols = v.select_dtypes(include=['float64', 'float32']).columns
                 data_dict[k][cols] = self.scaler.inverse_transform(data_dict[k][cols], df_name=k)
             # nested dictionary
             else:
                 for k1, v1 in v.items():
-                    cols = v1.select_dtypes(include=['float64']).columns
+                    cols = v1.select_dtypes(include=['float64', 'float32']).columns
                     data_dict[k][k1][cols] = self.scaler.inverse_transform(data_dict[k][k1][cols], df_name=k1)
         return data_dict
     
@@ -164,7 +174,10 @@ class Model():
         }
         self.data_dict['not_normalized'].update(evaluation_data)
         self.data_dict['normalized'].update(evaluation_data_scaled)
-
+        # Get rid of the filters, as lambda functions are not serializable
+        self.train_split_filter = None
+        self.test_split_filter = None
+        self.evaluation_filters = {k : None for k in self.evaluation_filters.keys()}
         # Add the evaluation data to the scaler
         self._plot_test_train_split()
     def _plot_test_train_split(self):

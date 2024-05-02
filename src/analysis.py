@@ -7,6 +7,7 @@ import re
 import os
 from lstm import LSTM 
 from geometricbrownianmotion import GeometricBrownianMotion
+from lstm_sde import LSTMSDE_to_train as LSTMSDE
 from numpy.random import RandomState
 import tensorflow as tf
 class AnalysisManager(): 
@@ -161,6 +162,12 @@ class Analysis():
         logging.info(f"Removing columns {self.dataset_df.columns.difference(self.x_vars + self.y_vars)}")
         self.dataset_df = self.dataset_df[self.x_vars + self.y_vars]
         logging.info(f"Columns remaining {self.dataset_df.columns}")
+        # Float 64 columns not supported by some models, so convert to float32
+        float64_cols = list(self.dataset_df.select_dtypes(include=['float64']).columns)
+        if float64_cols is not None and len(float64_cols) > 0:
+            logging.info(f"Converting columns {float64_cols} to float32")
+            self.dataset_df[float64_cols] = self.dataset_df[float64_cols].astype('float32')
+
         # Normalize data using minmax scaling
         # self.dataset_df = (self.dataset_df - self.dataset_df.min()) / (self.dataset_df.max() - self.dataset_df.min())
 
@@ -258,10 +265,23 @@ class Analysis():
                     self._call_model_funcs(model)
             elif model_type.lower() == 'lstm_sde':
                 logging.info("Creating LSTM SDE models")
-                for model_name, model_hyperparameters in all_models_for_type.items():
+                for model_name, model_dict in all_models_for_type.items():
                     # Create a LSTM SDE model
                     logging.info(f"Creating LSTM SDE model {model_name}")
-                    raise NotImplementedError("LSTM SDE model not implemented yet")
+                    model = LSTMSDE(data=self.dataset_df,
+                        model_hyperparameters=model_dict['model_hyperparameters'], 
+                        save_dir=path.join(self.output_directory, model_name), 
+                        model_name=model_name,
+                        x_vars=self.x_vars,
+                        y_vars=self.y_vars,
+                        seed=self._rand_state_mgr,
+                        test_split_filter=model_dict['test_split_filter'],
+                        train_split_filter=model_dict['train_split_filter'],
+                        evaluation_filters=model_dict['evaluation_filters'], 
+                        save_png=self.save_png,
+                        save_html=self.save_html)
+                    self._call_model_funcs(model)
+                    
             else:   
                 logging.error(f"Model {model_type} not implemented yet")
     
