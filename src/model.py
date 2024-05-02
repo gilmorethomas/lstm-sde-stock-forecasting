@@ -55,7 +55,7 @@ class Model():
         self.save_html = save_html
         self.save_png = save_png
         self.seed = seed
-        logging.info('Using the first y var as the base column for scaling')
+        logging.debug('Using the first y var as the base column for scaling')
         # Assign all the dataframes that are expected to be filled later 
         self.model_performance = {}
 
@@ -74,6 +74,16 @@ class Model():
         
         # If you want to scale the data by default by default the data is scaled
 
+    def _unpack_model_params(self, model_params):
+        """Assign model parameters to the class 
+
+        Args:
+            model_params (dict): 
+        """        
+        # Assigns the model parameters to the class
+        for k, v in model_params.items():
+            setattr(self, k, v)
+        
     def fit(self, data_dict):
         """Helper method that overrides self.data with the data dict
 
@@ -127,12 +137,12 @@ class Model():
             if k == 'all_data' :
                 continue
             if isinstance(v, pd.DataFrame):
-                cols = v.select_dtypes(include=['float64']).columns
+                cols = v.select_dtypes(include=['float64', 'float32']).columns
                 data_dict[k][cols] = self.scaler.inverse_transform(data_dict[k][cols], df_name=k)
             # nested dictionary
             else:
                 for k1, v1 in v.items():
-                    cols = v1.select_dtypes(include=['float64']).columns
+                    cols = v1.select_dtypes(include=['float64', 'float32']).columns
                     data_dict[k][k1][cols] = self.scaler.inverse_transform(data_dict[k][k1][cols], df_name=k1)
         return data_dict
     
@@ -164,7 +174,10 @@ class Model():
         }
         self.data_dict['not_normalized'].update(evaluation_data)
         self.data_dict['normalized'].update(evaluation_data_scaled)
-
+        # Get rid of the filters, as lambda functions are not serializable
+        self.train_split_filter = None
+        self.test_split_filter = None
+        self.evaluation_filters = {k : None for k in self.evaluation_filters.keys()}
         # Add the evaluation data to the scaler
         self._plot_test_train_split()
     def _plot_test_train_split(self):
@@ -352,16 +365,19 @@ class Model():
         # - Any other relevant information
         data_dict = self.data_dict['not_normalized']
         if data_dict['train_data'] is not None:
+            logging.debug('Calculating model performance for train data')
             train_performance = self._calculate_model_performance(data_dict['train_data'])
             self.model_performance['train'] = train_performance
         else:
             logging.error('Train Data Fit Cannot be None')
         if data_dict['test_data'] is not None:
+            logging.debug('Calculating model performance for test data')
             test_performance = self._calculate_model_performance(data_dict['test_data'])
             self.model_performance['test'] = test_performance
         else:
             logging.error('Test Data Fit Cannot be None')
         for eval_name in self.evaluation_data_names:
+            logging.debug(f'Calculating model performance for {eval_name}')
             eval_performance = self._calculate_model_performance(data_dict[eval_name])
             self.model_performance[eval_name] = eval_performance
         self._write_output_csvs()
@@ -384,14 +400,13 @@ class Model():
         metrics_df = pd.DataFrame()
         for y_var in self.y_vars:
             assert y_var in df.columns, f"Response dataframe must contain the y_var {y_var}"
-
             # The key for the metrics_df is the {y_var}_vs_{model_name}
             for model in self.model_responses['processed'] + self.model_responses['raw']:
                 # (TODO) Ultimately have a better way to map model repsonses back to y_vars
                 if y_var not in model:
                     continue
                 assert model in df.columns, f"Response dataframe must contain the model response {model}. Ensure the dataframe contains both raw and processed data."
-                
+                logging.debug(f'Calculating model performance for {model=} {y_var=}')
                 perf = self.__calculate_model_performance_single(df[y_var], df[model])
                 metrics_df[model] = pd.DataFrame(perf, index=[model]).T
                 #metrics_df[f'{y_var}_vs_{model}'] = 

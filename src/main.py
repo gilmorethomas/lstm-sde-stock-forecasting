@@ -28,6 +28,8 @@ from utils import timer_decorator
 # Create analysis class with models, and dataset
 # Create a class for each stock
 
+#TODO current problem: 
+#https://stackoverflow.com/questions/72556150/there-appear-to-be-1-leaked-semaphore-objects-to-clean-up-at-shutdown
 
 def preprocessing_callback(df):
     # There are likely certain things that we don't want to include in the dataset...
@@ -56,7 +58,7 @@ def preprocessing_callback(df):
     logging.info("NEED TO PULL INFORMATION ABOUT HOW MUCH DATA IS MISSING, NEED TO ADD A COLUMN THAT IT WAS IMPUTED ")
     # Add indicators for columns that are imputed
     for col in df.columns: 
-        if df[col].dtype in ['float64', 'int64']:
+        if df[col].dtype in ['float64', 'int64', 'float32', 'int32']:
             df[f'{col}_imputed_indicator'] = df[col].isnull().astype(int)
 
     # Impute data using data from the previous day
@@ -75,7 +77,7 @@ if __name__ == "__main__":
     # INFO will print out a ton of stuff, but is useful for debugging
     # Set the logger 
     #Options are DEBUG, INFO, WARNING, ERROR, and CRITICAL. These are increasing order and will change what gets printed out
-    logging.setLevel("INFO")
+    logging.setLevel("DEBUG")
     # Create an analysis object for each stock
     # Create a list of stock names
     # stock_names = ["AAPL", "AMD", "AMZN", "EA", "GOOG", "INTC", "MSFT", "NFLX", "NVDA"]
@@ -109,7 +111,7 @@ if __name__ == "__main__":
     
     analysis.preprocess_datasets()
     #analysis.validate_datasets()
-    models_dict = create_models_dict(gbm=True, lstm=True, lstm_sde=False)
+    models_dict = create_models_dict(gbm=False, lstm=False, lstm_sde=True)
     analysis.set_models_for_analysis_objs(models_dict=models_dict)
     analysis.run_analysis(run_descriptive=False, run_predictive=True)
     # Print the stock names

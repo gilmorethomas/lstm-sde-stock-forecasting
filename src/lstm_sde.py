@@ -1,3 +1,4 @@
+from lstm_logger import logger as logging
 import pandas as pd
 import numpy as np
 import torch
@@ -7,10 +8,21 @@ from torch.utils.data import TensorDataset, DataLoader
 from lstm_logger import logger as logging
 import multiprocessing
 import matplotlib.pyplot as plt
+import plotly.graph_objects as go
 from sklearn.calibration import calibration_curve
-from utils import timer_decorator
+from utils import timer_decorator, drop_nans_from_data_dict
+from plotting import plot, finalize_plot
+from timeseriesmodel import TimeSeriesModel
+from memory_profiler import profile
+import copy
+from itertools import product
 
 class SDEBlock(nn.Module):
+    """_summary_
+
+    Args:
+        nn (_type_): _description_
+    """    
     def __init__(self, d_lat, n_sde, t_sde):
         super(SDEBlock, self).__init__()
         self.d_lat = d_lat
@@ -42,10 +54,27 @@ class SDEBlock(nn.Module):
         return z
     
 class LSTMSDE(nn.Module):
-    def __init__(self, input_size, lstm_size, output_size, num_layers, t_sde, n_sde):
+
+    """ The main functionality of the LSTM SDE class is to generate N 
+    latent variable paths of the form {z_0, ..., z_N__sde} where z(0) = z_0 and N_sde 
+    deontes number of latent variables in each latent variable path
+
+    Steps: 
+    1.) Observed time-sequential data of dimension Dobs = 1 is fed to single-latyer LSTM netowrk of dimension D_lstm
+        1a.) this implies that the observed data mapped from R^D_obs to R^D_LSTM inside the network 
+    2.) The mapped observed data of R^D_LSTM is mapped to the initial latent variable z_0 { R^D_Lat through a linear layer mapping R^D_LSTM to R^D_Lat
+    3.) The initial latent variable is fed to latent variable neural SDE framework (SDE block) 
+    4.) The SDE block generates N latent variable paths of the form {z_0, ..., z_N__sde} where z(0) = z_0 and N_sde deontes number of latent variables in each latent variable path 
+        4a.) This is done using the EM method, with drift and diffusion networks f* and g* 
+        4b.) The dirft and diffusion networks consist of two-layer neural netws where the first layer maps to R^2*D_Lat and the second layer maps back to R^D_Lat
+        4c.) The activation function for f* and g* is the tanh-function 
+    
+    """
+    def __init__(self, input_size, lstm_size, output_size, num_layers, t_sde, n_sde, loss_fn):
         super(LSTMSDE, self).__init__()
         self.hidden_size = lstm_size
         self.num_layers = num_layers
+        self.loss_fn = loss_fn
         # Define the layers of the network
 
         # Define the LSTM layer. Typically want a single layer LSTM network
@@ -88,17 +117,134 @@ class LSTMSDE(nn.Module):
 
         return out
 
-class LSTMSDE_to_train(LSTMSDE):
-    """A class extending the LSTMSDE class to include a fit method. 
-    This class does not actually implement any of the model, but rather just calls the train and test methods of the model 
-    and is the class that should be used to train the model of type LSTMSDE
-
-    Args:
-        LSTMSDE (_type_): _description_
+class LSTMSDE_to_train(TimeSeriesModel):
+    """A wrapper class for the LSTMSDE class. This is intended to interact with the rest of the library, while divorcing the 
+    actual functionality from the preparation and interfacing with data and other models.
     """    
-    def __init__(self, input_size, lstm_size, output_size, num_layers, t_sde, n_sde):
-        super(LSTMSDE_to_train, self).__init__(input_size, lstm_size, output_size, num_layers, t_sde, n_sde)
-        self.lstm_sde = LSTMSDE(input_size, lstm_size, output_size, num_layers, t_sde, n_sde)
+    def __init__(self, 
+        data, 
+        model_hyperparameters, 
+        save_dir, 
+        model_name, 
+        x_vars, 
+        y_vars, 
+        seed:np.random.RandomState,
+        test_split_filter=None, 
+        train_split_filter=None, 
+        evaluation_filters:list=[],
+        save_html=True,
+        save_png=True):
+
+            super().__init__(data=data, 
+            model_hyperparameters=model_hyperparameters, 
+            save_dir=save_dir, 
+            model_name=model_name,
+            x_vars=x_vars,
+            y_vars=y_vars,
+            seed=seed,
+            test_split_filter=test_split_filter,
+            train_split_filter=train_split_filter,
+            evaluation_filters=evaluation_filters, 
+            save_html=save_html,
+            save_png=save_png
+            )
+            self.model_hyperparameters = model_hyperparameters 
+            self.model_hyperparameters = self._set_hyperparameter_defaults(self.model_hyperparameters)
+            self._unpack_model_params(self.model_hyperparameters)
+            self.save_dir = save_dir
+            # Model dictionary. Primary key is y var, secondary is sed number
+            self.lstm_sdes = {y_var : {seed_num: LSTMSDE(self.d_input, self.d_lstm, self.d_lat, self.num_layers, self.t_sde, self.n_sde, self.loss_fn) for seed_num in range(self.num_sims)} for y_var in self.y_vars}
+            # Set the remaining hyperparameters, which require instantiation of the model
+            self.optimizers = {} 
+            y_var_seed_product = product(self.y_vars, range(self.num_sims))
+            [self._set_optimizer_defaults(
+                y_var=y_var, 
+                model=self.lstm_sdes[y_var][seed_num]) 
+                for y_var, seed_num in y_var_seed_product]
+    def _set_hyperparameter_defaults(self, model_params):
+        if 'loss_fn' not in model_params:
+            logging.warning(f"No loss function specified. Defaulting to MSELoss")
+            self.loss_fn = torch.nn.MSELoss()
+        elif model_params['loss_fn'] == 'MSELoss':
+            self.loss_fn = torch.nn.MSELoss()
+        elif model_params['loss_fn'] == 'NLLLoss':
+            self.loss_fn = torch.nn.NLLLoss()
+        else:
+            logging.warning(f"Loss function {model_params['loss_fn']} not recognized. Defaulting to MSELoss")
+            self.loss_fn = torch.nn.MSELoss()
+        if 'learning_rate' not in model_params:
+            logging.warning("No learning rate specified. Defaulting to 0.01")
+            model_params['learning_rate'] = 0.01
+        if 'num_epochs' not in model_params:
+            logging.warning("No number of epochs specified. Defaulting to 1000")
+            model_params['num_epochs'] = 1000
+        if 'num_layers' not in model_params:
+            logging.warning("No number of layers specified. Defaulting to 1")
+            model_params['num_layers'] = 1
+        if 'd_lstm' not in model_params:
+            logging.warning("No LSTM dimension specified. Defaulting to 64")
+            model_params['d_lstm'] = 64
+        if 'd_lat' not in model_params:
+            logging.warning("No latent dimension specified. Defaulting to 1")
+            model_params['d_lat'] = 1
+        if 'd_input' not in model_params:
+            logging.warning("No input dimension specified. Defaulting to 1")
+            model_params['d_input'] = 1
+        if 'd_hidden' not in model_params:
+            logging.warning("No hidden dimension specified. Defaulting to 1")
+            model_params['d_hidden'] = 1
+        if 'N' not in model_params:
+            logging.warning("No number of latent variable paths specified. Defaulting to 50")
+            model_params['N'] = 50
+        if 't_sde' not in model_params:
+            logging.warning("No SDE time step specified. Defaulting to 1")
+            model_params['t_sde'] = 1
+        if 'n_sde' not in model_params:
+            logging.warning("No number of latent variables in each latent variable path specified. Defaulting to 100")
+            model_params['n_sde'] = 100
+        if 'num_sims' not in model_params:
+            logging.warning("No number of simulations specified. Defaulting to 5")
+            model_params['num_sims'] = 1
+        if 'batch_size' not in model_params:
+            logging.warning("No batch size specified. Defaulting to 64")
+            model_params['batch_size'] = 64
+        if 'shuffle' not in model_params:
+            logging.warning("No shuffle specified. Defaulting to True")
+            model_params['shuffle'] = True
+        if 'time_steps' not in model_params:
+            logging.warning("No window size specified. Defaulting to 30")
+            model_params['time_steps'] = 30
+        return model_params 
+    def _set_optimizer_defaults(self, model, y_var):
+        """Sets default values for hyperparameters of optimizer.
+        Note that this is in a separate function than the _set_hyperparameter_defaults function
+        because the optimizers require that the model has been created. 
+
+        Args:
+            model_params (dict): model hyperparameters 
+        """        
+        model_params = self.model_hyperparameters
+
+        if 'optimizer' not in model_params:
+            logging.warning(f"No optimizer specified. Defaulting to Adam")
+            optimizer = torch.optim.Adam(model.parameters(), lr=model_params['learning_rate'])
+            model_params['optimizer'] = ['adam']
+        elif model_params['optimizer'].lower() == 'adam':
+            optimizer = torch.optim.Adam(model.parameters(), lr=model_params['learning_rate'])
+            model_params['optimizer'] = ['adam']
+        elif model_params['optimizer'].lower() == 'sgd':
+            optimizer = torch.optim.SGD(model.parameters(), lr=model_params['learning_rate'])
+            model_params['optimizer'] = ['sgd']
+        else:
+            logging.warning(f"Optimizer {model_params['optimizer']} not recognized. Defaulting to Adam")
+            optimizer = torch.optim.Adam(model.parameters(), lr=model_params['learning_rate'])
+            model_params['optimizer'] = ['adam']
+        model_params['optimizer'] = self.optimizer
+        self.optimizers[y_var] = optimizer
+        self.model_hyperparameters = model_params
+        
+
+
     def forward(self, x):
         """Wrapper method used to call the lstm_sde forward method
 
@@ -109,34 +255,78 @@ class LSTMSDE_to_train(LSTMSDE):
             _type_: _description_
         """        
         return self.lstm_sde(x)
-    def fit(self, dataloader, loss_fn, optimizer, n_epochs, x_inputs: dict, y_targets: dict):
+    #@profile
+    def fit(self): #, dataloader, loss_fn, optimizer, n_epochs, x_inputs: dict, y_targets: dict):
         """Calls the train and fit methods of the model 
-
-        Args:
-            model (_type_): _description_
-            loss_fn (_type_): _description_
-            optimizer (_type_): _description_
-            n_epochs (int, optional): _description_. Defaults to 1000.
-            x_targets (dict): Dictionary of x targets, with keys being the target names and values being the target values
-            y_targets (dict): Dictionary of y targets, with keys being the target names and values being the target values
 
         Returns:
             _type_: _description_
         """        
-        losses_over_time = self._train(dataloader, loss_fn, optimizer, n_epochs)
-        predictions_dict = {}
-        rmse_dict = {}
-        for x_input_name, x_input in x_inputs.items():
-            # assuming that y targets has the same keys 
-            y_target = y_targets[x_input_name]
-            if not isinstance(x_input, torch.Tensor):
-                x_input = torch.tensor(x_input, dtype=torch.float32)
-                y_target = torch.tensor(y_target, dtype=torch.float32)
-            predictions_dict[x_input_name], rmse_dict[x_input_name] = self._eval(model, loss_fn, x_input, y_target)
-        return predictions_dict, rmse_dict, losses_over_time
-    
+        # Wrapper data structure that will be used in addition to things from the Model Class
+        self.lstm_data = self._prefit_functions() 
+        # iterate over each of the dataloaders 
+        
+        # Train on the train data 
+        losses = {y_var: {seed_num: [] for seed_num in range(self.num_sims)} for y_var in self.y_vars}
+        y_pred = copy.deepcopy(losses)
+        rmse = copy.deepcopy(losses)
+        y_vars_seeds = product(self.y_vars, range(self.num_sims))
+        for y_var, seed_num in y_vars_seeds: 
+            losses[y_var][seed_num] = self._train(model=self.lstm_sdes[y_var][seed_num],
+                        dataloader=self.lstm_data[y_var]['dataloaders']['train_data'], 
+                        optimizer=self.optimizers[y_var], 
+                        n_epochs=self.model_hyperparameters['num_epochs'], 
+                        loss_fn=self.loss_fn)
+            y_pred[y_var][seed_num], rmse[y_var][seed_num] = {}, {}
+            for datakey in self.lstm_data[y_var]['data']['x'].keys():
+                y_pred[y_var][seed_num][datakey], rmse[y_var][seed_num][datakey] = self._eval(model=self.lstm_sdes[y_var][seed_num], 
+                   loss_fn=self.loss_fn, 
+                   x_input=self.lstm_data[y_var]['tensors']['x'][datakey], 
+                   y_target=self.lstm_data[y_var]['tensors']['y'][datakey])
+        self.losses_over_time = losses
+        self.rmse = rmse 
+        data_dict = self._build_output_data(y_pred, copy.deepcopy(self.data_dict['not_normalized']), copy.deepcopy(self.data_dict['normalized'])) 
+        super().fit(data_dict)
+    def _build_output_data(self, out_data, data_dict_not_norm, data_dict):
+        """Builds the output data. Relies on the fact that the model produces normalized output data.
+
+        Note that this is very similar to the LSTM _build_output_data function.
+
+        TODO align this with LSTM class _build_output_data function
+
+        Args:
+            out_data (_type_): _description_
+            data_dict (_type_): _description_
+
+        Returns:
+            _type_: _description_
+        """        
+        # Build empty nans to prepend. Add 1, think thisi s because the data is not counting the prediction for the next day? TODO look into that
+        nan_array = np.array([[np.nan] * (self.model_hyperparameters['time_steps'])]).T
+        # Build the empty structure  
+        outputs_norm = {y_var: {seed_num: [] for seed_num in range(self.num_sims)} for y_var in self.y_vars}
+        outputs = copy.deepcopy(outputs_norm)
+        for y_var, seed_num in product(self.y_vars, range(self.num_sims)):
+            # Pandas concatatenate the data into the
+            this_data = out_data[y_var][seed_num]
+            # Need to reshape the numpy array to have shape (n, 1)
+            train_data_to_insert = this_data['train_data'].numpy().reshape(-1, 1)
+            test_data_to_insert = np.concatenate([nan_array, this_data['test_data'].numpy().reshape(-1, 1)])
+            data_dict['train_data'][f'{y_var}_{self.model_name}_{seed_num}'] = train_data_to_insert
+            data_dict['test_data'][f'{y_var}_{self.model_name}_{seed_num}'] = test_data_to_insert
+            data_dict_not_norm['test_data'][f'{y_var}_{self.model_name}_{seed_num}'] = self.scaler.inverse_transform(test_data_to_insert)
+            data_dict_not_norm['train_data'][f'{y_var}_{self.model_name}_{seed_num}'] = self.scaler.inverse_transform(train_data_to_insert)
+            # drop nans to account for windows for rollback data
+
+            for eval_filter in self.evaluation_data_names:
+                eval_data_to_insert = this_data[eval_filter].numpy().reshape(-1, 1)
+                data_dict[eval_filter][f'{y_var}_{self.model_name}_{seed_num}'] = eval_data_to_insert
+                data_dict_not_norm[eval_filter][f'{y_var}_{self.model_name}_{seed_num}'] = self.scaler.inverse_transform(eval_data_to_insert)
+        data_dict = drop_nans_from_data_dict(data_dict, self, self.fit)
+        data_dict_not_norm = drop_nans_from_data_dict(data_dict_not_norm, self, self.fit)
+        return {'normalized' : data_dict, 'not_normalized' : data_dict_not_norm}
     @timer_decorator
-    def _train(self, dataloader, loss_fn, optimizer, n_epochs=1000):
+    def _train(self, model, dataloader, optimizer, n_epochs, loss_fn):
         """Trains the model 
 
         Args:
@@ -149,12 +339,13 @@ class LSTMSDE_to_train(LSTMSDE):
         losses_over_time = []
         mse_over_time = []
         for epoch in range(n_epochs):
-            self.train()
+            logging.debug(f'Training for {epoch=}')
+            model.train()
             epoch_losses = []
             for X_batch, y_batch in dataloader:
-                y_pred = self(X_batch)
+                y_pred = model(X_batch)
                 y_pred = y_pred.squeeze()  # remove extra dimensions from outputs
-                loss = loss_fn(y_pred, y_batch)
+                loss = model.loss_fn(y_pred, y_batch)
                 epoch_losses.append(np.sqrt(loss.item())) # not sure if sqrt here and on test makes sense
                 optimizer.zero_grad()
                 loss.backward()
@@ -164,7 +355,8 @@ class LSTMSDE_to_train(LSTMSDE):
             logging.info(f'Epoch {epoch+1}/{n_epochs}, Mean Loss: {np.mean(epoch_losses)}')
             losses_over_time.append(np.mean(epoch_losses))
         return losses_over_time
-
+    def save(self):
+        logging.info('LSTM SDE save not implemented')
     def _eval(self, model, loss_fn, x_input, y_target):
         """Tests the model
 
@@ -182,17 +374,121 @@ class LSTMSDE_to_train(LSTMSDE):
             y_pred_train = y_pred_train.squeeze()  # remove extra dimensions from outputs
             rmse = np.sqrt(loss_fn(y_pred_train, y_target))
         #print("Epoch %d: train RMSE %.4f, test RMSE %.4f" % (epoch, train_rmse, test_rmse))
+        logging.error("Need to fix eval to pull in predict_future_steps")
         return y_pred_train, rmse
+    
+    def predict_future_steps(model, initial_input_data, n_steps):
+        """Predicts n future steps using an autoregressive approach.
 
-# Function to create dataset
-def create_dataset(dataset, time_step=1):
-    dataX, dataY = [], []
-    for i in range(len(dataset)-time_step-1):
-        a = dataset[i:(i+time_step), :]
-        dataX.append(a)
-        dataY.append(dataset[i + time_step, 0])
-    return np.array(dataX), np.array(dataY)
+        Args:
+            model: The trained model.
+            initial_input_data: The input data to start the predictions.
+            n_steps: The number of future steps to predict.
 
+        Returns:
+            A list of predictions.
+        """
+        input_data = initial_input_data.copy()
+        predictions = []
+
+        for _ in range(n_steps):
+            # Use the model to predict the next step
+            prediction = model.predict(input_data)
+            predictions.append(prediction)
+
+            # Append the prediction to the input data and remove the oldest value
+            input_data = np.append(input_data[1:], prediction)
+
+        return predictions
+    #@profile
+    def _prefit_functions(self): 
+        window_size = self.model_hyperparameters['time_steps']
+        batch_size = self.model_hyperparameters['batch_size']
+        shuffle = self.model_hyperparameters['shuffle']
+        total_model_dict = {}
+        if len(self.y_vars) > 1: 
+            logging.warning('Multiple y variables detected, undefined behavior')
+        for var in self.y_vars: 
+            # Not sure why the reshape is required.. all this is doing is creating a rolling window of data. Should implement this differently 
+            # (TODO) WARNING: THE REASON FOR A LOT OF THE MULTI-LINE ASSIGNMENTS IS BECAUSE THE CODE CRASHES WITH A RESOURCE_TRACKER_WARNING. NEED TO FIX 
+            # Create a dictionary of tensors to pass to the model
+            # Create PyTorch data loaders for the train and test data
+            
+            # create prepended data to account for time windowing
+            train_data_to_prepend = self.data_dict['normalized']['train_data'].iloc[-self.model_hyperparameters['time_steps']:][self.x_vars + [var]]
+            test_data_to_prepend = self.data_dict['normalized']['test_data'].iloc[-self.model_hyperparameters['time_steps']:][self.x_vars + [var]]
+
+            train_data_df = pd.concat([train_data_to_prepend, self.data_dict['normalized']['train_data']]).sort_values(by='Date')
+            train_data = np.array(train_data_df[var]).reshape(-1, 1)
+            test_data = np.array(self.data_dict['normalized']['test_data'][var]).reshape(-1, 1)
+            model_dict = {} 
+            data = {x: {} for x in ['x', 'y']}
+            tensors = {x: {} for x in ['x', 'y']}
+            dataloaders = {}
+
+            x, y  = LSTMSDE_to_train._create_dataset(train_data, window_size) 
+            x_torch = torch.from_numpy(x)
+            y_torch = torch.from_numpy(y)
+            dl = DataLoader(TensorDataset(x_torch, y_torch), batch_size=batch_size, shuffle=shuffle)
+            data['x']['train_data'], data['y']['train_data'] = x, y
+            tensors['x']['train_data'], tensors['y']['train_data'] = x_torch, y_torch
+            dataloaders['train_data'] = dl 
+
+            x, y =   LSTMSDE_to_train._create_dataset(test_data, window_size)
+            x_torch = torch.from_numpy(x)
+            y_torch = torch.from_numpy(y)
+            data['x']['test_data'], data['y']['test_data'] = x, y
+            tensors['x']['test_data'], tensors['y']['test_data'] = x_torch, y_torch
+            dl = DataLoader(TensorDataset(x_torch, y_torch), batch_size=batch_size, shuffle=shuffle)
+            dataloaders['test_data'] = dl
+
+            for eval_filter in self.evaluation_filters:
+                eval_data_df = pd.concat([test_data_to_prepend, self.data_dict['normalized'][eval_filter]]).sort_values(by='Date')
+                eval_data = np.array(eval_data_df[var]).reshape(-1, 1)
+                # Create the dataset and targets for each of the eval sets 
+                eval_data, eval_targets = LSTMSDE_to_train._create_dataset(eval_data, window_size)
+                data['x'][eval_filter] = eval_data
+                data['y'][eval_filter] = eval_targets
+                eval_data_tensor = torch.from_numpy(eval_data)
+                eval_targets_tensor = torch.from_numpy(eval_targets)
+                tensors['x'][eval_filter] = eval_data_tensor
+                tensors['y'][eval_filter] = eval_targets_tensor
+                dataloaders[eval_filter] = DataLoader(TensorDataset(eval_data_tensor, eval_targets_tensor), batch_size=batch_size, shuffle=shuffle)
+            total_model_dict[var] = {'data' : data, 'tensors' : tensors, 'dataloaders' : dataloaders}
+        return total_model_dict
+        # cre
+
+
+    @staticmethod
+    def _create_dataset(dataset, time_step=1): 
+            dataX, dataY = [], []
+            for i in range(len(dataset)-time_step):
+                a = dataset[i:(i+time_step), :]
+                dataX.append(a)
+                dataY.append(dataset[i + time_step, 0])
+            return np.array(dataX), np.array(dataY)
+    
+    def plot(self, y_col='Close'):
+        loss_df = pd.DataFrame()
+        for y_var, seed_num in product(self.y_vars, range(self.num_sims)):
+            these_losses = self.losses_over_time[y_col][seed_num]
+            loss_df[f'{y_var}_{seed_num}'] = these_losses
+            loss_df['Epoch'] = loss_df.index
+
+            fig = plot(df = loss_df, 
+                x_col = 'Epoch', 
+                y_col = f'{y_var}_{seed_num}',
+                plot_type = 'line', 
+                trace_name = f'{y_var}_{seed_num}'
+            )
+        finalize_plot(fig, 
+                       'Losses vs. Epoch', 
+                       'train_loss', 
+                       self.save_dir, 
+                       save_png = self.save_png, 
+                       save_html = self.save_html)
+        
+        super().plot()
 
 if __name__ == "__main__":
     # Set manual seed for reproducibility
@@ -212,130 +508,16 @@ if __name__ == "__main__":
     sequence_length = 10 # number of days to look back when making a prediction. Note that this ultimately should be 1... The model should do all this internally and we provide a 1-D input
     # NOTE THIS MUST MATCH 
     # Split data into train and test sets
-    train_size = int(len(df2) * 0.95)
-    test_size = len(df2) - train_size
-    train_data, test_data = df2[0:train_size,:], df2[train_size:len(df2),:1]
-    # Create the train and test data and targets
-    train_data, train_targets = create_dataset(train_data, sequence_length)
-    test_data, test_targets = create_dataset(test_data, sequence_length)
-
-    # Convert the train and test data to PyTorch tensors
-    train_data_tensor = torch.tensor(train_data, dtype=torch.float32)
-    train_targets_tensor = torch.tensor(train_targets, dtype=torch.float32)
-    test_data_tensor = torch.tensor(test_data, dtype=torch.float32)
-    test_targets_tensor = torch.tensor(test_targets, dtype=torch.float32)
-    batch_size = 32
-    # Create PyTorch data loaders for the train and test data
-    train_loader = DataLoader(TensorDataset(train_data_tensor, train_targets_tensor), batch_size=batch_size, shuffle=True
-                              #num_workers=multiprocessing.cpu_count() # For this model, it seems that num_workers is less efficient when set
-                              )
-    test_loader = DataLoader(TensorDataset(test_data_tensor, test_targets_tensor), batch_size=batch_size, shuffle=True
-                              #num_workers=multiprocessing.cpu_count() # For this model, it seems that num_workers is less efficient when set
-                             )
-
-    # Define the hyperparameters
-    d_lstm = 64 # dimension of the LSTM network
-    d_lat = 1 # dimension of the latent variable
-    d_input = 1 # dimension of the input. TODO increasing this breaks things... 
-    d_hidden = 1 # dimensionality of the hidden state of the LSTM. Determines how much information the network can store about the past 
-    N = 50 # number of latent variable paths to simulate )
-    t_sde = 1 # time step for SDE
-    n_sde = 100 # number of latent variables in each latent variable path (i.e num days to simulate for each path)
-    learning_rate = 10e-2 # learning rate for the optimizer
-    num_epochs = 10 # number of epochs to train the model
-    num_layers = 1 # number of layers in the LSTM network
-
-    # Steps: 
-    # 1.) Observed time-sequential data of dimension Dobs = 1 is fed to single-latyer LSTM netowrk of dimension D_lstm
-        # 1a.) this implies that the observed data mapped from R^D_obs to R^D_LSTM inside the network 
-    # 2.) The mapped observed data of R^D_LSTM is mapped to the initial latent variable z_0 { R^D_Lat through a linear layer mapping R^D_LSTM to R^D_Lat
-    # 3.) The initial latent variable is fed to latent variable neural SDE framework (SDE block) 
-    # 4.) The SDE block generates N latent variable paths of the form {z_0, ..., z_N__sde} where z(0) = z_0 and N_sde deontes number of latent variables in each latent variable path 
-        # 4a.) This is done using the EM method, with drift and diffusion networks f* and g* 
-        # 4b.) The dirft and diffusion networks consist of two-layer neural netws where the first layer maps to R^2*D_Lat and the second layer maps back to R^D_Lat
-        # 4c.) The activation function for f* and g* is the tanh-function 
+    train_size = int(len(df2) * 0.8)
+    test_size = int(len(df2) * 0.15)
+    eval_size = len(df2) - train_size - test_size
+    train_data, test_data, eval_data = df2[0:train_size,:], df2[train_size:train_size+test_size,:], df2[train_size+test_size:len(df2),:1]
     
 
 
-    # Define the optimizer
-
-    # Define the loss function
-    loss_fn = torch.nn.MSELoss()
-
-    model = LSTMSDE_to_train(input_size=d_input,
-                    num_layers=d_hidden,
-                    lstm_size=d_lstm,
-                    output_size=d_lat,
-                    t_sde=t_sde,
-                    n_sde=n_sde)
-    #optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate)
-    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-    fit_data = model.fit(train_loader, 
-                         loss_fn, 
-                         optimizer, 
-                         num_epochs, 
-                         x_inputs = {'train_data': train_data_tensor, 'test_data': test_data_tensor}, 
-                         y_targets = {'train_data': train_targets_tensor, 'test_data': test_targets_tensor})
-    #train_predictions, train_mse_over_time = model_2.train_model(train_loader, loss_fn, optimizer, num_epochs)
-    print('Done training model 2')
-    #test_predictions, test_mse_over_time = model_2.test_model(test_loader, loss_fn)
-    #$train_rmse_over_time = train(train_loader, model, loss_fn, optimizer, num_epochs)
-    print('Done training')
-    # Evaluate the model on the training data
-    #train_output, train_rmse = eval(model=model, loss_fn=loss_fn, x_input=train_data_tensor, y_target=train_targets_tensor)
-    # Evaluate the model on the test data
-    #test_output, test_rmse = eval(model=model, loss_fn=loss_fn, x_input=test_data_tensor, y_target=test_targets_tensor)
-
-    #outputs = test(model, loss_fn, train_data_tensor, train_targets_tensor, test_data_tensor, test_targets_tensor)
-    # We can't use NLLLoss because we are not doing classification
-    # NLL loss in olaf's paper is defined differently than the standard NLL loss
-    # loss_fn = torch.nn.NLLLoss() Olaf uses NLL but I think this is wrong.. that's for classification 
-
-    
-    # Calculate calibration error 
-    #calibration_error = np.mean(np.abs(test_predictions - test_targets_tensor.numpy()[0:len(test_predictions)]))
     print('Finished Training')
 
-    import plotly.graph_objects as go
-    # Create a scatter plot for train targets vs train predictions
 
-    time = list(range(len(train_targets)))
-
-    # Create a line plot for time vs train targets
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(x=time, y=train_targets, mode='lines', name='Train Targets'))
-
-    # Add a trace for time vs train predictions
-    fig.add_trace(go.Scatter(x=time, y=fit_data[0]['train_data'], mode='lines', name='Train Predictions'))
-    #fig.add_trace(go.Scatter(x=time, y=train_output, mode='lines', name='Train Predictions'))
-
-
-    fig.update_layout(title='Time vs Train Targets and Predictions',
-                    xaxis_title='Time',
-                    yaxis_title='Value')
-    fig.show()
-
-    # Create a line plot for time vs train targets
-    fig2 = go.Figure()
-    fig2.add_trace(go.Scatter(x=time, y=test_targets, mode='lines', name='Test Targets'))
-
-    # Add a trace for time vs train predictions
-    fig2.add_trace(go.Scatter(x=time, y=fit_data[0]['test_data'], mode='lines', name='Test Predictions'))
-    #fig2.add_trace(go.Scatter(x=time, y=test_output, mode='lines', name='Test Predictions'))
-
-    fig2.update_layout(title='Time vs Test Targets and Predictions',
-                    xaxis_title='Time (days)',
-                    yaxis_title='Value')
-    fig2.show()
-
-    loss_time = list(range(len(fit_data[2])))
-    # Create a line plot for train time vs train loss
-    fig3 = go.Figure()
-    fig3.add_trace(go.Scatter(x=loss_time, y=fit_data[2], mode='lines', name='Train Loss'))
-    fig3.update_layout(title='Train Time vs Train Loss',
-                    xaxis_title='Train Time (epochs)',
-                    yaxis_title='Train Loss')
-    fig3.show()
 
     # # Calculate confidences and accuracies for each bin
     # fraction_of_positives, mean_predicted_value = calibration_curve(test_targets, test_predictions, n_bins=10)

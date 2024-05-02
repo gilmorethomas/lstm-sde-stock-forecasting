@@ -75,7 +75,8 @@ class LSTM(TimeSeriesModel):
         for y_var in self.y_vars:
             fit_data_one_var = self._fit_one_y_var(self.data_dict, y_var)
 
-        # Not sure that this will work for multiple y vars            
+        # Not sure that this will work for multiple y vars           
+        logging.warning('Not yet implemented for multiple y vars') 
         data_dict = fit_data_one_var
         super().fit(data_dict)
 
@@ -148,7 +149,28 @@ class LSTM(TimeSeriesModel):
 
         # Execute all the models in parallel.. TODO.. we cannot return the model if we parallelize
         out_data = parallelize(self._gen_and_predict_for_seed, parallelize_args, run_parallel=False)    
+
+        y_var_data = self._bould_output_data(out_data, self.data_dict['normalized'], self.data_dict['not_normalized'], y_var)
         
+        # TODO get rid of the temp removal of the filters 
+        self.test_split_filter = tmp_test_split_filter
+        self.train_split_filter = tmp_train_split_filter
+        self.evaluation_filters = tmp_evaluation_filters
+
+        return y_var_data
+    def _bould_output_data(self, out_data, data_dict, data_dict_not_norm, y_var):
+        """Builds the output data for a single y variable. TODO ultimately make this a common function between lstm_sde and lstm 
+        since they are trying to accomplish the same thing from an interface perspective
+
+        Args:
+            out_data (_type_): _description_
+            data_dict (_type_): _description_
+            data_dict_not_norm (_type_): _description_
+            y_var (_type_): _description_
+
+        Returns:
+            _type_: _description_
+        """            
         # Need to prepend nans for each model result
         nan_array = np.array([[np.nan] * self.model_hyperparameters['time_steps']]).T
         # Iterate over the output data and add it to the train data fit array
@@ -171,10 +193,7 @@ class LSTM(TimeSeriesModel):
                 data_dict[eval_filter].loc[: ,y_var + f'_{self.model_name}_{seed_num}'] = train_data_fit_one_seed[eval_filter]
                 data_dict_not_norm[eval_filter].loc[: ,y_var + f'_{self.model_name}_{seed_num}'] = self.scaler.inverse_transform(train_data_fit_one_seed[eval_filter])
             self.model_objs.append(model)
-        
-        self.test_split_filter = tmp_test_split_filter
-        self.train_split_filter = tmp_train_split_filter
-        self.evaluation_filters = tmp_evaluation_filters
+
 
         return {'normalized' : data_dict, 'not_normalized': data_dict_not_norm}
     

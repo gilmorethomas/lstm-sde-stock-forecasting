@@ -77,7 +77,7 @@ class Scaler:
         cur_scaler = self._scalers[df_name]
         cur_scaler['base_column'] = self.base_column 
         cur_scaler['data'] = {}
-        for var in df.select_dtypes('float64').columns:
+        for var in df.select_dtypes('float64', 'float32').columns:
             if not self._check_valid_scaler_type(scaler_type):
                 return
             if scaler_type == 'StandardScaler':
@@ -175,7 +175,7 @@ class Scaler:
             self.fit(df, df_name, self._default_scaler_type)
         # if no columns are passed, transform all float64 columns
         if columns is None:
-            columns = df.select_dtypes('float64').columns
+            columns = df.select_dtypes('float64', 'float32').columns
         
         df2 = df.copy(deep=True)
         for var in columns:
@@ -203,7 +203,7 @@ class Scaler:
             return
         # if no columns are passed, transform all float64 columns
         if columns is None:
-            columns = df.select_dtypes('float64').columns
+            columns = df.select_dtypes('float64', 'float32').columns
 
         df2 = df.copy(deep=True)
         for var in columns:
