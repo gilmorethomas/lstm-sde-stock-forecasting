@@ -466,3 +466,7 @@ class Model():
     def _validate_hyperparameters(self):
         # Validate the hyperparameters of the model
         raise NotImplementedError("This should be implemented by the child class")
+
+    @classmethod
+    def load_from_previous_output(cls, save_dir, model_name):
+        ...
