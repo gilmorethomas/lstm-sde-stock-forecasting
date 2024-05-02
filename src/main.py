@@ -77,7 +77,7 @@ if __name__ == "__main__":
     # INFO will print out a ton of stuff, but is useful for debugging
     # Set the logger 
     #Options are DEBUG, INFO, WARNING, ERROR, and CRITICAL. These are increasing order and will change what gets printed out
-    logging.setLevel("INFO")
+    logging.setLevel("DEBUG")
     # Create an analysis object for each stock
     # Create a list of stock names
     # stock_names = ["AAPL", "AMD", "AMZN", "EA", "GOOG", "INTC", "MSFT", "NFLX", "NVDA"]

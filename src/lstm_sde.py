@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 from sklearn.calibration import calibration_curve
 from utils import timer_decorator
-from plotting import plot 
+from plotting import plot, finalize_plot
 from timeseriesmodel import TimeSeriesModel
 from memory_profiler import profile
 import copy
@@ -69,10 +69,11 @@ class LSTMSDE(nn.Module):
         4c.) The activation function for f* and g* is the tanh-function 
     
     """
-    def __init__(self, input_size, lstm_size, output_size, num_layers, t_sde, n_sde):
+    def __init__(self, input_size, lstm_size, output_size, num_layers, t_sde, n_sde, loss_fn):
         super(LSTMSDE, self).__init__()
         self.hidden_size = lstm_size
         self.num_layers = num_layers
+        self.loss_fn = loss_fn
         # Define the layers of the network
 
         # Define the LSTM layer. Typically want a single layer LSTM network
@@ -149,9 +150,9 @@ class LSTMSDE_to_train(TimeSeriesModel):
             self.model_hyperparameters = model_hyperparameters 
             self.model_hyperparameters = self._set_hyperparameter_defaults(self.model_hyperparameters)
             self._unpack_model_params(self.model_hyperparameters)
-        
+            self.save_dir = save_dir
             # Model dictionary 
-            self.lstm_sdes = {y_var : LSTMSDE(self.d_input, self.d_lstm, self.d_lat, self.num_layers, self.t_sde, self.n_sde) for y_var in self.y_vars}
+            self.lstm_sdes = {y_var : LSTMSDE(self.d_input, self.d_lstm, self.d_lat, self.num_layers, self.t_sde, self.n_sde, self.loss_fn) for y_var in self.y_vars}
 
             # Set the remaining hyperparameters, which require instantiation of the model
             self.optimizers = {} 
@@ -270,22 +271,19 @@ class LSTMSDE_to_train(TimeSeriesModel):
                         optimizer=self.optimizers[y_var], 
                         n_epochs=self.model_hyperparameters['num_epochs'], 
                         loss_fn=self.loss_fn)
-            y_pred[y_var], rmse[y_var] = self._eval(model=self.lstm_sdes[y_var], 
-                       loss_fn=self.loss_fn, 
-                       x_input=self.lstm_data['data']['x'][y_var], 
-                       y_target=self.lstm_data['data']['y'][y_var])
-
-        predictions_dict = {}
-        rmse_dict = {}
-        for x_input_name, x_input in x_inputs.items():
-            # assuming that y targets has the same keys 
-            y_target = y_targets[x_input_name]
-            if not isinstance(x_input, torch.Tensor):
-                x_input = torch.tensor(x_input, dtype=torch.float32)
-                y_target = torch.tensor(y_target, dtype=torch.float32)
-            predictions_dict[x_input_name], rmse_dict[x_input_name] = self._eval(model, loss_fn, x_input, y_target)
-        return predictions_dict, rmse_dict, losses_over_time
+            y_pred[y_var], rmse[y_var] = {}, {}
+            for datakey in self.lstm_data[y_var]['data']['x'].keys():
+                y_pred[y_var], rmse[y_var] = self._eval(model=self.lstm_sdes[y_var], 
+                   loss_fn=self.loss_fn, 
+                   x_input=self.lstm_data[y_var]['tensors']['x'][datakey], 
+                   y_target=self.lstm_data[y_var]['tensors']['y'][datakey])
+        self.losses_over_time = losses
+        self.rmse = rmse 
     
+        return self._build_output_data(y_pred, self.data_dict) 
+    def _build_output_data(self, out_data, data_dict):
+        logging.warning('Not implemented yet, need to build the output data like the other models do')
+        return self.data_dict
     @timer_decorator
     def _train(self, model, dataloader, optimizer, n_epochs, loss_fn):
         """Trains the model 
@@ -300,6 +298,7 @@ class LSTMSDE_to_train(TimeSeriesModel):
         losses_over_time = []
         mse_over_time = []
         for epoch in range(n_epochs):
+            logging.debug(f'Training for {epoch=}')
             model.train()
             epoch_losses = []
             for X_batch, y_batch in dataloader:
@@ -312,10 +311,11 @@ class LSTMSDE_to_train(TimeSeriesModel):
                 optimizer.step()
             epoch_loss = np.mean(epoch_losses)
             # mse_over_time.append() May ultimately want to pull this in. zsince our loss function is mse, it should be the same thing I think ?
-            logging.info(f'Epoch {epoch+1}/{self.n_epochs}, Mean Loss: {np.mean(epoch_losses)}')
+            logging.info(f'Epoch {epoch+1}/{n_epochs}, Mean Loss: {np.mean(epoch_losses)}')
             losses_over_time.append(np.mean(epoch_losses))
         return losses_over_time
-
+    def save(self):
+        logging.info('LSTM SDE save not implemented')
     def _eval(self, model, loss_fn, x_input, y_target):
         """Tests the model
 
@@ -402,14 +402,24 @@ class LSTMSDE_to_train(TimeSeriesModel):
                 dataY.append(dataset[i + time_step, 0])
             return np.array(dataX), np.array(dataY)
     
-    def plot(self): 
-        plot(df = self.losses_over_time, 
+    def plot(self, y_col='Close'):
+        these_losses = self.losses_over_time[y_col]
+        loss_df = pd.DataFrame()
+        loss_df['Loss'] = these_losses
+        loss_df['Epoch'] = loss_df.index
+        fig = plot(df = loss_df, 
              x_col = 'Epoch', 
              y_col = 'Loss', 
-             plot_type = 'lines', 
-             output_dir = self.save_dir, 
-             output_name = 'train_loss'
+             plot_type = 'line', 
+             trace_name = 'Loss'
         )
+        finalize_plot(fig, 
+                       'Losses vs. Epoch', 
+                       'train_loss', 
+                       self.save_dir, 
+                       save_png = self.save_png, 
+                       save_html = self.save_html)
+        
         super().plot()
 
 if __name__ == "__main__":
