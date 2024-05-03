@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import mean_squared_error
 import math
-from model import Model
+ 
 from tensorflow.keras.layers import LSTM as keras_LSTM
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense
@@ -151,7 +151,7 @@ class LSTM(TimeSeriesModel):
         # Execute all the models in parallel.. TODO.. we cannot return the model if we parallelize
         out_data = parallelize(self._gen_and_predict_for_seed, parallelize_args, run_parallel=False)    
 
-        y_var_data = self._bould_output_data(out_data, self.data_dict[DN.normalized], self.data_dict[DN.not_normalized], y_var)
+        y_var_data = self._bould_output_data(out_data, copy.deepcopy(self.data_dict[DN.normalized]), copy.deepcopy(self.data_dict[DN.not_normalized]), y_var)
         
         # TODO get rid of the temp removal of the filters 
         self.test_split_filter = tmp_test_split_filter
@@ -181,18 +181,18 @@ class LSTM(TimeSeriesModel):
         # Build the output data
         for seed_num, model, train_data_fit_one_seed in out_data:
             # Pandas concatatenate the data into the
-            data_dict[DN.test_data].loc[:, f'{y_var}_{self.model_name}_{seed_num}'] = train_data_fit_one_seed['test_predict']
-            data_dict_not_norm[DN.test_data].loc[:, f'{y_var}_{self.model_name}_{seed_num}'] = self.scaler.inverse_transform(train_data_fit_one_seed['test_predict'])
-            data_dict[DN.train_data].loc[:, y_var + f'_{self.model_name}_{seed_num}'] = np.concatenate([nan_array, train_data_fit_one_seed['train_predict']])
-            data_dict_not_norm[DN.train_data].loc[:, y_var + f'_{self.model_name}_{seed_num}'] = self.scaler.inverse_transform(np.concatenate([nan_array, train_data_fit_one_seed['train_predict']]))
+            data_dict[DN.test_data].loc[:, f'{y_var}_{seed_num}'] = train_data_fit_one_seed['test_predict']
+            data_dict_not_norm[DN.test_data].loc[:, f'{y_var}_{seed_num}'] = self.scaler.inverse_transform(train_data_fit_one_seed['test_predict'])
+            data_dict[DN.train_data].loc[:, y_var + f'_{seed_num}'] = np.concatenate([nan_array, train_data_fit_one_seed['train_predict']])
+            data_dict_not_norm[DN.train_data].loc[:, y_var + f'_{seed_num}'] = self.scaler.inverse_transform(np.concatenate([nan_array, train_data_fit_one_seed['train_predict']]))
             # drop nans to account for windows for rollback data
             data_dict[DN.train_data].dropna(inplace=True)
             data_dict_not_norm[DN.train_data].dropna(inplace=True) 
             [data_dict_not_norm[eval_data].dropna(inplace=True) for eval_data in self.evaluation_data_names]
 
             for eval_filter in self.evaluation_data_names:
-                data_dict[eval_filter].loc[: ,y_var + f'_{self.model_name}_{seed_num}'] = train_data_fit_one_seed[eval_filter]
-                data_dict_not_norm[eval_filter].loc[: ,y_var + f'_{self.model_name}_{seed_num}'] = self.scaler.inverse_transform(train_data_fit_one_seed[eval_filter])
+                data_dict[eval_filter].loc[: ,y_var + f'_{seed_num}'] = train_data_fit_one_seed[eval_filter]
+                data_dict_not_norm[eval_filter].loc[: ,y_var + f'_{seed_num}'] = self.scaler.inverse_transform(train_data_fit_one_seed[eval_filter])
             self.model_objs.append(model)
 
 
@@ -328,58 +328,7 @@ class LSTM(TimeSeriesModel):
             self.model_hyperparameters['num_sims'] = 2
     
     @classmethod
-    def load_from_previous_output(cls, save_dir, model_name):
-        super().load_from_previous_output(save_dir, model_name)
-
-        # Merge the train data fit with the train data 
-        # # TODO (replace w/ model hyperparameters)
-        # learning_rate = 0.001
-        # beta_1 = 0.9
-        # beta_2 = 0.999
-        # epsilon = 0.0001F
-        # decay = 0.0
-        # adam_opt = Adam(learning_rate = learning_rate)
-        #                # beta_1=beta_1,
-        #                 #beta_2=beta_2,
-        #                 #epsilon=epsilon,
-        #                 #decay=decay,
-        #                 #amsgrad=False)
-        # #self.model.compile(optimizer='adam', loss='mse', metrics=['accuracy'])
-        # self.model.compile(optimizer=adam_opt, loss='mse', metrics=['accuracy'])
-
-        # #self.model.compile(loss='mean_squared_error')
-        
-        # y_train = self.train_data[vars_to_use].to_numpy()
-        
-        # self.model.test = self.model.fit(y_train)
-
-#if __name__ == "__main__":
-    
-    # tf.keras.layers.LSTM(
-    #     units,
-    #     activation='tanh',
-    #     recurrent_activation='sigmoid',
-    #     use_bias=True,
-    #     kernel_initializer='glorot_uniform',
-    #     recurrent_initializer='orthogonal',
-    #     bias_initializer='zeros',
-    #     unit_forget_bias=True,
-    #     kernel_regularizer=None,
-    #     recurrent_regularizer=None,
-    #     bias_regularizer=None,
-    #     activity_regularizer=None,
-    #     kernel_constraint=None,
-    #     recurrent_constraint=None,
-    #     bias_constraint=None,
-    #     dropout=0.0,
-    #     recurrent_dropout=0.0,
-    #     seed=None,
-    #     return_sequences=False,
-    #     return_state=False,Dense
-    #     go_backwards=False,
-    #     stateful=False,
-    #     unroll=False,
-    #     use_cudnn='auto',
-    #     **kwargs
-    # )
-    
+    def load_from_previous_output(cls, class_params):# , save_dir, model_name):
+        instance = super().load_from_previous_output(class_params)
+        return instance
+        # Any custom stuff needed here

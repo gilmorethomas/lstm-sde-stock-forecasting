@@ -54,7 +54,7 @@ if __name__ == "__main__":
     # INFO will print out a ton of stuff, but is useful for debugging
     # Set the logger 
     #Options are DEBUG, INFO, WARNING, ERROR, and CRITICAL. These are increasing order and will change what gets printed out
-    logging.setLevel("DEBUG")
+    logging.setLevel("INFO")
     # Create an analysis object for each stock
     # Create a list of stock names
     # stock_names = ["AAPL", "AMD", "AMZN", "EA", "GOOG", "INTC", "MSFT", "NFLX", "NVDA"]
@@ -91,7 +91,7 @@ if __name__ == "__main__":
     
     analysis.preprocess_datasets()
     #analysis.validate_datasets()
-    models_dict = create_models_dict(gbm=False, lstm=False, lstm_sde=True)
+    models_dict = create_models_dict(gbm=True, lstm=True, lstm_sde=True)
     analysis.set_models_for_analysis_objs(models_dict=models_dict)
     analysis.run_analysis(run_descriptive=False, run_predictive=True)
     # Print the stock names

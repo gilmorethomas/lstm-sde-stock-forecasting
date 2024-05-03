@@ -1,6 +1,8 @@
 import os
 from os import path, makedirs
 import re
+import copy 
+
 import pandas as pd
 from numpy.random import RandomState
 import tensorflow as tf
@@ -8,7 +10,11 @@ import torch
 
 from lstm_logger import logger as logging
 from project_globals import DataNames as DN
-from plotting import plot_all_x_y_combinations
+from project_globals import ModelTypes as MT
+from project_globals import ModelStructure as MS
+
+from plotting import plot_all_x_y_combinations, plot_multiple_y_cols, finalize_plot
+from model import Model
 from lstm import LSTM 
 from geometricbrownianmotion import GeometricBrownianMotion
 from lstm_sde import LSTMSDE_to_train as LSTMSDE
@@ -29,6 +35,10 @@ class Analysis():
             logging.info(f"Creating output directory {output_directory}")
             makedirs(output_directory)
         if self.load_previous_results:
+            separator = "*" * 80
+            logging.warning(separator)
+            logging.warning("Loading models and datasets from previous results. If you have changed the hyperparameters or the dataset, you should set load_previous_results to False")
+            logging.warning(separator)
             self.load_from_previous_output()
     def preprocess_dataset(self):
         if self.load_previous_results: 
@@ -51,13 +61,15 @@ class Analysis():
         # self.dataset_df = (self.dataset_df - self.dataset_df.min()) / (self.dataset_df.max() - self.dataset_df.min())
 
 
-    def run_analysis(self, run_descriptive=True, run_predictive=True): 
+    def run_analysis(self, run_descriptive=True, run_predictive=True, run_cross_model=True): 
 
         logging.info(f"Running analysis for {self.dataset_name}")
         if run_descriptive: 
             self.run_descriptive()
         if run_predictive: 
             self.run_predictive()
+        if run_cross_model: 
+            self.run_cross_model()
     def run_descriptive(self):
         # run descriptive analytics
         self.report_stats() 
@@ -112,23 +124,25 @@ class Analysis():
                 logging.info("Creating LSTM models")
                 for model_name, model_dict in all_models_for_type.items():
                     logging.info(f"Creating LSTM model {model_name}")
+                    model_args = {'data' : self.dataset_df,
+                            'model_hyperparameters' : model_dict['library_hyperparameters'],
+                            'save_dir' : path.join(self.output_directory, 'LSTM', model_name),
+                            'units' :  model_dict['units'],
+                            'model_name' : model_name,
+                            'x_vars' : self.x_vars,
+                            'y_vars' : self.y_vars,
+                            'seed' : self._rand_state_mgr,
+                            'test_split_filter' : model_dict['test_split_filter'],
+                            'train_split_filter' : model_dict['train_split_filter'],
+                            'evaluation_filters' : model_dict['evaluation_filters'], 
+                            'save_png' : self.save_png,
+                            'save_html' : self.save_html
+                        }
                     if not self.load_previous_results: 
-                        model = LSTM(data=self.dataset_df, 
-                            model_hyperparameters=model_dict['library_hyperparameters'],
-                            units = model_dict['units'],
-                            save_dir=path.join(self.output_directory, 'lstm', model_name), 
-                            model_name=model_name,
-                            x_vars=self.x_vars,
-                            y_vars=self.y_vars,
-                            seed=self._rand_state_mgr,
-                            test_split_filter=model_dict['test_split_filter'],
-                            train_split_filter=model_dict['train_split_filter'],
-                            evaluation_filters=model_dict['evaluation_filters'], 
-                            save_png=self.save_png,
-                            save_html=self.save_html)
+                        model = LSTM(**model_args)
                         self._call_model_funcs(model)
                     else: 
-                        model = LSTM.load_from_previous_output(LSTM, path.join(self.output_directory, 'lstm', model_name), model_name)
+                        model = LSTM.load_from_previous_output(model_args)
                     # Save the model off in the models_dict
                     self.models_dict[model_type][model_name]['model_object'] = model
 
@@ -137,53 +151,237 @@ class Analysis():
                 for model_name, model_dict in all_models_for_type.items():
                     # Create a GBM model
                     logging.info(f"Creating GBM model {model_name}")
+                    model_args = {'data' : self.dataset_df, 
+                            'model_hyperparameters' : model_dict[DN.params], 
+                            'save_dir' : path.join(self.output_directory, 'LSTMSDE', model_name), 
+                            'model_name' : model_name,
+                            'x_vars' : self.x_vars,
+                            'y_vars' : self.y_vars,
+                            'seed' : self._rand_state_mgr,
+                            'test_split_filter' : model_dict['test_split_filter'],
+                            'train_split_filter' : model_dict['train_split_filter'],
+                            'evaluation_filters' : model_dict['evaluation_filters'], 
+                            'save_png' : self.save_png,
+                            'save_html' : self.save_html
+                        }
                     if not self.load_previous_results: 
-                        model = GeometricBrownianMotion(data=self.dataset_df,
-                            model_hyperparameters=model_dict['model_hyperparameters'], 
-                            save_dir=path.join(self.output_directory, 'gbm', model_name), 
-                            model_name=model_name,
-                            x_vars=self.x_vars,
-                            y_vars=self.y_vars,
-                            seed=self._rand_state_mgr,
-                            test_split_filter=model_dict['test_split_filter'],
-                            train_split_filter=model_dict['train_split_filter'],
-                            evaluation_filters=model_dict['evaluation_filters'], 
-                            save_png=self.save_png,
-                            save_html=self.save_html)
+                        model = GeometricBrownianMotion(**model_args) 
                         self._call_model_funcs(model)
                     else: 
-                        model = GeometricBrownianMotion.load_from_previous_output(GeometricBrownianMotion, path.join(self.output_directory, 'lstm', model_name), model_name)
+                        model = GeometricBrownianMotion.load_from_previous_output(model_args)
                     # Save the model off in the models_dict
                     self.models_dict[model_type][model_name]['model_object'] = model
 
-            elif model_type.lower() == 'lstm_sde':
+            elif model_type.lower() == 'lstmsde':
                 
                 logging.info("Creating LSTM SDE models")
                 for model_name, model_dict in all_models_for_type.items():
                     # Create a LSTM SDE model
                     logging.info(f"Creating LSTM SDE model {model_name}")
+                    model_args = {'data' : self.dataset_df, 
+                            'model_hyperparameters' : model_dict[DN.params], 
+                            'save_dir' : path.join(self.output_directory, 'LSTMSDE', model_name), 
+                            'model_name' : model_name,
+                            'x_vars' : self.x_vars,
+                            'y_vars' : self.y_vars,
+                            'seed' : self._rand_state_mgr,
+                            'test_split_filter' : model_dict['test_split_filter'],
+                            'train_split_filter' : model_dict['train_split_filter'],
+                            'evaluation_filters' : model_dict['evaluation_filters'], 
+                            'save_png' : self.save_png,
+                            'save_html' : self.save_html
+                        }
+                    
                     if not self.load_previous_results: 
-                        model = LSTMSDE(data=self.dataset_df,
-                            model_hyperparameters=model_dict['model_hyperparameters'], 
-                            save_dir=path.join(self.output_directory, 'lstm_sde', model_name), 
-                            model_name=model_name,
-                            x_vars=self.x_vars,
-                            y_vars=self.y_vars,
-                            seed=self._rand_state_mgr,
-                            test_split_filter=model_dict['test_split_filter'],
-                            train_split_filter=model_dict['train_split_filter'],
-                            evaluation_filters=model_dict['evaluation_filters'], 
-                            save_png=self.save_png,
-                            save_html=self.save_html)
+                        model = LSTMSDE(**model_args) 
                         self._call_model_funcs(model)
                     else: 
-                        model = LSTMSDE.load_from_previous_output(LSTMSDE, path.join(self.output_directory, 'lstm_sde', model_name), model_name)
+                        model = LSTMSDE.load_from_previous_output(model_args)
                     # Save the model off in the models_dict
                     self.models_dict[model_type][model_name]['model_object'] = model
 
             else:   
                 logging.error(f"Model {model_type} not implemented yet")
+    def run_cross_model(self):
+        # Create the cross-model directory 
+        cross_model_dir = path.join(self.output_directory, 'cross_model')
+        # Make all the submodel types. Pull only the types that we've defined from the modeule. This ignores special variables like __name__ and __doc__
+        model_types = [v for k, v in vars(MT).items() if isinstance(v, str) and not v.startswith('__') and not callable(v) and v is not None and not v.startswith('<') and not k.startswith('__')]
+        
+        # Create the cross model directory
+        #model_dict = Model._get_empty_datadict_struct()
+        #models_dict = {model_type: copy.deepcopy(model_dict) for model_type in model_types}
+
+
+        model_type_dirs = [path.join(cross_model_dir, mt) for mt in model_types + ['all']]
+        [makedirs(mt) for mt in model_type_dirs if not path.exists(mt)]
+        # For each model type, combine the results of the models in that type and write a report
+        for model_type_dir, model_type in zip(model_type_dirs, model_types):
+            # Get the models for the model type
+            model_type_models = self.models_dict.get(model_type, {})
+            if model_type_models is None or len(model_type_models) == 0:
+                logging.info(f"No models for model type {model_type}")
+                continue
+            # Get the model objects for the model type
+            model_name_with_model_obj  = {model_name: model_dict['model_object'] for model_name, model_dict in model_type_models.items()}
+            #model_name_with_hyperparams  = {model_name: model_dict['model_hyperparameters'] for model_name, model_dict in model_type_models.items()}
+                                       
+            if model_name_with_model_obj is None or len(model_name_with_model_obj) == 0:
+                logging.info(f"No model objects for model type {model_type}")
+                continue
+            # Combine the results of the models in that type
+            # For now, just plot the results
+            self._plot_cross_model_results(model_name_with_model_obj, model_type_dir, model_type)
+            # Write a report
+            self._write_cross_model_report(model_name_with_model_obj, model_type_dir, model_type)
+        # Combine the results of all models and write a report
+        all_models = {}
+        for model_type, model_type_dict in self.models_dict.items():
+            all_models.update((model_name, model_dict['model_object']) for model_name, model_dict in model_type_dict.items())
+        self._plot_cross_model_results(all_models, path.join(cross_model_dir, 'all'), 'all')
+        self._write_cross_model_report(all_models, path.join(cross_model_dir, 'all'), 'all')
     
+    def _plot_cross_model_results(self, model_dict, output_dir, model_type):
+        """Plots the results multiple models, which are contained in the models dictionary
+        Creates one plot for each datatype in the data dictionary.
+        TODO (break this out for multiple y vars and multiple x vars)
+
+        Args:
+            model_dict (_type_): _description_
+            output_dir (_type_): _description_
+            model_type (_type_): _description_
+        """        
+        # Assume that the first model objects types in data dict match all the others 
+        first_model = list(model_dict.keys())[0]
+        # For the plots for all models, only pull the first processed responses, since that will be a lot of traces otherwise
+        proc_responses = list(model_dict[first_model].model_responses['proc']) if model_type != 'all' else [model_dict[first_model].model_responses['proc'][0]]
+        eval_names = list(model_dict[first_model].evaluation_data_names)
+        x_vars = list(model_dict[first_model].x_vars)
+        y_vars = list(model_dict[first_model].y_vars)
+        all_vars = x_vars + y_vars + proc_responses 
+        data_dict_struct = model_dict[first_model].get_empty_datadict_struct()
+
+        data_keys = list(data_dict_struct[DN.not_normalized].keys())
+        figs = {dk : None for dk in data_keys} 
+
+        for k in data_dict_struct[DN.not_normalized]:
+            # Create a dictionary to store the plots for each datatype
+            if k == 'all_data':
+                continue
+            for modelkey, modelvals in model_dict.items():
+                this_data = modelvals.data_dict[DN.not_normalized][k]
+                if this_data is None or this_data.empty:
+                    logging.warning(f"No data for {k} in model {modelkey}")
+                    continue
+                if k not in figs:
+                    figs[k] = None
+
+                # Only plot the actual response onse
+                y_cols_to_plot = y_vars + proc_responses if modelkey == first_model else proc_responses
+                # First pass figs[k] is going to be null, but plot can handle that
+                # Plot the actual response data for the first model only 
+                if modelkey == first_model:
+                    figs[k] = plot_multiple_y_cols(
+                        df=this_data, 
+                        x_col=x_vars[0], 
+                        y_cols=y_vars,
+                        trace_name_to_prepend='', 
+                        plot_type='line', 
+                        title=None,
+                        fig=figs[k],
+                        output_dir=None, 
+                        output_name=None, 
+                        save_png=False, 
+                        save_html=False,
+                        finalize=False)      
+
+                figs[k] = plot_multiple_y_cols(
+                    df=this_data, 
+                    x_col=x_vars[0], 
+                    #y_cols=y_cols_to_plot,
+                    y_cols = proc_responses,
+                    trace_name_to_prepend=modelkey, 
+                    plot_type='line', 
+                    title=None,
+                    fig=figs[k],
+                    output_dir=None, 
+                    output_name=None, 
+                    save_png=False, 
+                    save_html=False,
+                    finalize=False)
+    
+                
+        # Finalize the plot for each plot in figs 
+        for k, fig in figs.items():
+            if fig is None: 
+                logging.warning(f'No figure for {k}')
+                continue
+            finalize_plot(fig,
+                          title = f'{k} for all {model_type} models',
+                          output_dir=output_dir,
+                          filename=k,
+                          save_png=self.save_png,
+                          save_html=self.save_html)
+
+
+            # Now plot the data 
+
+
+
+
+    def _write_cross_model_report(self, model_dict, output_dir, model_type):
+        # Assume that the first model objects types in data dict match all the others 
+        first_model = list(model_dict.keys())[0]
+        # For the plots for all models, only pull the first processed responses, since that will be a lot of traces otherwise
+        if model_type == 'all':
+            first_model_type = first_model
+            first_model_obj = model_dict[first_model]
+            proc_responses = first_model_obj.model_responses['proc'][0]
+            if not isinstance(proc_responses, list):
+                proc_responses = [proc_responses]
+            #eval_names = list(model_dict[first_model_type][first_model].evaluation_data_names)
+            eval_names = first_model_obj.evaluation_data_names
+
+        else: 
+            first_model_obj = model_dict[first_model]
+            proc_responses = first_model_obj.model_responses['proc'] 
+            if not isinstance(proc_responses, list):
+                proc_responses = [proc_responses]
+            eval_names = model_dict[first_model].evaluation_data_names
+        
+        # Create a dictionary to store the performance metrics for each model
+
+        performance_struct = {k: None for k in first_model_obj.model_performance.keys()}
+        x_vars = list(first_model_obj.x_vars)
+        y_vars = list(first_model_obj.y_vars)
+        all_vars = x_vars + y_vars + proc_responses 
+
+        for k in performance_struct:
+            # Create a dictionary to store the plots for each datatype
+            if k == 'all_data':
+                continue
+            for modelkey, modelvals in model_dict.items():
+                this_data = modelvals.model_performance[k]
+                # Make a multiindex dataframe where the first index is the modelname and the second is the existing index 
+                this_data['model_name'] = modelkey
+
+                this_data.set_index(['model_name'], append=True, inplace=True)
+                if performance_struct[k] is None:
+                    performance_struct[k] = this_data
+                else: 
+                    performance_struct[k] = pd.concat([performance_struct[k], this_data])
+
+        # Finalize the plot for each plot in figs 
+        for k, df in performance_struct.items():
+            if df is None: 
+                logging.warning(f'No performance for {k}')
+                continue
+            output_file = path.join(output_dir, MS.perf, f'{k}.csv')
+            if not path.exists(path.join(output_dir, MS.perf)):
+                makedirs(path.join(output_dir, MS.perf))
+            logging.info(f"Writing performance metrics for {k} to {output_file}")
+            df.to_csv(output_file)
+
     def _call_model_funcs(self, model):
         """Helper function to call all model functions
         Args:

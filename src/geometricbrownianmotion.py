@@ -71,8 +71,9 @@ class GeometricBrownianMotion(TimeSeriesModel):
             logging.info('No time window specified in model hyperparameters, using default of last 10 days')
             self.model_hyperparameters['window_size'] = 100
         elif self.model_hyperparameters['window_size'] is None:
-            logging.info('No time window specified in model hyperparameters, using all data')
-            self.model_hyperparameters['window_size'] = self.data_dict[DN.normalized][DN.train_data].shape[0]
+            window_size = self.data_dict[DN.normalized][DN.train_data].shape[0]
+            logging.info(f'No time window specified in model hyperparameters, using all data, with size {window_size}')
+            self.model_hyperparameters['window_size'] = window_size
         if 'dt' not in self.model_hyperparameters: 
             logging.info('No time step specified in model hyperparameters, using default of 10e-3')
             self.model_hyperparameters['dt'] = 10e-3
@@ -199,7 +200,7 @@ class GeometricBrownianMotion(TimeSeriesModel):
 
             # Assign the simulated data to the train_data_fit dataframe, using multiple columns
             for i in range(num_sims):
-                train_data_fit[f'{col}_{self.model_name}_{i}'] = gbm_data[:,i]
+                train_data_fit[f'{col}_{i}'] = gbm_data[:,i]
 
         return train_data_fit
 
@@ -394,7 +395,7 @@ if __name__=='__main__':
                             freq='D').map(lambda x: x if x.isoweekday() in range(1, 6) else np.nan).dropna(), S[i, :])
         
     @classmethod
-    def load_from_previous_output(cls, save_dir, model_name):
-        print('hi')
-        super().load_from_previous_output(save_dir, model_name)
-        ...
+    def load_from_previous_output(cls, class_params):# , save_dir, model_name):
+        instance = super().load_from_previous_output(class_params)
+        return instance
+        # Any custom stuff needed here

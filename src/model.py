@@ -1,8 +1,8 @@
 from lstm_logger import logger as logging
 from plotting import plot_all_x_y_combinations, plot_multiple_dfs
 from project_globals import DataNames as DN
-from project_globals import DataNames as MS
-
+from project_globals import ModelStructure as MS
+import glob 
 from os import path, makedirs
 import pickle
 import pandas as pd 
@@ -44,6 +44,8 @@ class Model():
         self.evaluation_filters = evaluation_filters
         self.evaluation_data_names = list(evaluation_filters.keys())
         self.save_dir = save_dir
+        self.plots_dir = path.join(save_dir, 'plots')
+        self.report_dir = path.join(save_dir, 'report')
         if not path.exists(save_dir):
             logging.info(f"Creating save directory {save_dir}")
             makedirs(save_dir)
@@ -102,19 +104,25 @@ class Model():
         self.model_responses[DN.proc], self.data_dict[DN.not_normalized][DN.train_data] = self._add_rollup_data(data_dict[DN.not_normalized][DN.train_data])
         _, self.data_dict[DN.normalized][DN.train_data] = self._add_rollup_data(data_dict[DN.normalized][DN.train_data])
         _, self.data_dict[DN.not_normalized][DN.train_data] = self._add_rollup_data(data_dict[DN.not_normalized][DN.train_data])
-        _, self.data_dict[DN.normalized][DN.train_data] = self._add_rollup_data(data_dict[DN.normalized][DN.train_data])
+        _, self.data_dict[DN.normalized][DN.test_data] = self._add_rollup_data(data_dict[DN.normalized][DN.test_data])
+        _, self.data_dict[DN.not_normalized][DN.test_data] = self._add_rollup_data(data_dict[DN.not_normalized][DN.test_data])
+
         for eval_name in self.evaluation_data_names:
             _, self.data_dict[DN.not_normalized][eval_name] = self._add_rollup_data(self.data_dict[DN.not_normalized][eval_name])
             _, self.data_dict[DN.normalized][eval_name] = self._add_rollup_data(self.data_dict[DN.normalized][eval_name])
 
         self._plot_fit(DN.train_data)
-        self._plot_fit(DN.train_data)
+        self._plot_fit(DN.test_data)
         [self._plot_fit(eval_name) for eval_name in self.evaluation_data_names]
         #self._plot_fit('evaluation_data')
         self._print_train_end_message()
     def _build_model_response_dict(self):
         # Build model response raw list from y_vars with model name and number of sims appended
-        self.model_responses[DN.raw] = [f'{y_var}_{self.model_name}_{i}' for y_var in self.y_vars for i in range(self.model_hyperparameters['num_sims'])]
+        self.model_responses[DN.raw] = [f'{y_var}_{i}' for y_var in self.y_vars for i in range(self.model_hyperparameters['num_sims'])]
+        # Build model response proc list from y_vars
+        proc_suffixes = ['mean', 'min_mean_model', 'max_mean_model', 'min_max_mean_avg']
+        self.model_responses[DN.proc] = []
+        [self.model_responses[DN.proc].append(f'{y_var}_{suffix}') for y_var in self.y_vars for suffix in proc_suffixes]
     def _normalize_data_dict(self, data_dict, y_col):
         # Returns a normalized data dictionary, where data with columns in y_col are scaled
         # Unscale the data
@@ -192,7 +200,7 @@ class Model():
             x_cols=self.x_vars, 
             y_cols=self.y_vars, 
             plot_type='line', 
-            output_dir=path.join(self.save_dir, 'test_train_split'), 
+            output_dir=path.join(self.plots_dir, 'test_train_split'), 
             output_name=self.model_name,
             save_png=self.save_png, 
             save_html=self.save_html,
@@ -241,11 +249,11 @@ class Model():
             processed_repsonses.append(f'{y_var}_max_mean_model')   # Add the model with the maximium mean
             processed_repsonses.append(f'{y_var}_min_max_mean_avg') # Add the average of the minimum and maximum mean
 
-            response_data[f'{y_var}_mean'] = response_data[[f'{y_var}_{self.model_name}_{i}' for i in range(self.model_hyperparameters['num_sims'])]].mean(axis=1)
-            response_data[f'{y_var}_median'] = response_data[[f'{y_var}_{self.model_name}_{i}' for i in range(self.model_hyperparameters['num_sims'])]].median(axis=1)
+            response_data[f'{y_var}_mean'] = response_data[[f'{y_var}_{i}' for i in range(self.model_hyperparameters['num_sims'])]].mean(axis=1)
+            response_data[f'{y_var}_median'] = response_data[[f'{y_var}_{i}' for i in range(self.model_hyperparameters['num_sims'])]].median(axis=1)
             # Calculate the model columns that have the minimum and maximum mean
-            min_mean_col = response_data[[f'{y_var}_{self.model_name}_{i}' for i in range(self.model_hyperparameters['num_sims'])]].mean().idxmin()
-            max_mean_col = response_data[[f'{y_var}_{self.model_name}_{i}' for i in range(self.model_hyperparameters['num_sims'])]].mean().idxmax()
+            min_mean_col = response_data[[f'{y_var}_{i}' for i in range(self.model_hyperparameters['num_sims'])]].mean().idxmin()
+            max_mean_col = response_data[[f'{y_var}_{i}' for i in range(self.model_hyperparameters['num_sims'])]].mean().idxmax()
             response_data[f'{y_var}_min_mean_model'] = response_data[min_mean_col]
             response_data[f'{y_var}_max_mean_model'] = response_data[max_mean_col]
             response_data[f'{y_var}_min_max_mean_avg'] = (response_data[f'{y_var}_min_mean_model'] + response_data[f'{y_var}_max_mean_model']) / 2
@@ -259,10 +267,15 @@ class Model():
         # Build a dictionary of the columns that are not x_vars
         logging.info(f'Plotting {data_type}')
         # Byuild a dictionary with dataframes with one column each 
-        if data_type in [DN.train_data, DN.train_data] + self.evaluation_data_names:
-            all_data = {col: self.data_dict[norm][data_type][self.x_vars + [col]] for col in self.y_vars + self.model_responses[DN.proc] + self.model_responses[DN.raw]}
+        if data_type in [DN.train_data, DN.test_data] + self.evaluation_data_names:
+            try:
+                all_data = {col: self.data_dict[norm][data_type][self.x_vars + [col]] for col in self.y_vars + self.model_responses[DN.proc] + self.model_responses[DN.raw]}
+            except KeyError as e:
+                logging.error(f"Dataframe {data_type} does not exist in the data dictionary or does not have expected columns")
+                return
         else: 
-            raise NotImplementedError("Plotting overlaid datasets from different periods not enabled yet")
+            import pdb; pdb.set_trace()
+            raise NotImplementedError(f"Plot fit not implemented for data type {data_type}.")
         # Rename the columns with {y_var}_{model_name}_{seed} to be {y_var}. This is so we can pass the 
         for key in all_data.keys():
             cols = {key: col.split('_')[0] for col in all_data[key].columns if col not in self.x_vars}
@@ -272,13 +285,14 @@ class Model():
         all_data_raw = {k: v for k, v in all_data.items() if k in self.model_responses[DN.raw] + self.y_vars}
         all_data_proc = {k: v for k, v in all_data.items() if k in self.model_responses[DN.proc] + self.y_vars}
         # Plot the raw data
+        output_dir = path.join(self.plots_dir, 'model_predictions', data_type)
         title = f'{data_type} Raw'
         plot_multiple_dfs(all_data_raw,
             title=title,
             x_cols=self.x_vars, 
             y_cols=self.y_vars,
             plot_type='line', 
-            output_dir=path.join(self.save_dir, 'model_predictions'),
+            output_dir=output_dir,
             output_name=f'{self.model_name}_{data_type}_all_models', 
             save_png=self.save_png, 
             save_html=self.save_html,
@@ -290,7 +304,7 @@ class Model():
             x_cols=self.x_vars, 
             y_cols=self.y_vars,
             plot_type='line', 
-            output_dir=path.join(self.save_dir, 'model_predictions'),
+            output_dir=output_dir,
             output_name=f'{self.model_name}_{data_type}_all_models_processed', 
             save_png=self.save_png, 
             save_html=self.save_html,
@@ -302,7 +316,7 @@ class Model():
             x_cols=self.x_vars, 
             y_cols=self.y_vars,
             plot_type='line', 
-            output_dir=path.join(self.save_dir, 'model_predictions'),
+            output_dir=output_dir,
             output_name=f'{self.model_name}_{data_type}_all_models_raw_and_processed', 
             save_png=self.save_png, 
             save_html=self.save_html,
@@ -347,7 +361,7 @@ class Model():
                 x_cols=self.x_vars, 
                 y_cols=y_cols, 
                 plot_type=plot_type, 
-                output_dir=path.join(self.save_dir, DN.train_data, 'single_iterations'), 
+                output_dir=path.join(self.plots_dir, 'model_predictions', DN.train_data, 'single_iterations'), 
                 output_name=self.model_name, 
                 save_png=self.save_png, 
                 save_html=self.save_html)
@@ -438,34 +452,41 @@ class Model():
         """Writes the output data to csvs
         """        
         # Write the train and model data to csv 
-        report_dir = path.join(self.save_dir, MS.report)
-        perf_dir = path.join(report_dir, MS.performance)
-        pred_dir = path.join(report_dir, MS.predictions)
-        norm_dir = path.join(pred_dir, MS.normalized)
-        not_norm_dir = path.join(pred_dir, MS.not_normalized)
+        data_dir = path.join(self.report_dir, MS.data)
+        norm_data_dir = path.join(data_dir, DN.normalized)
+        not_norm_data_dir = path.join(data_dir, DN.not_normalized)
+        perf_dir = path.join(self.report_dir, MS.perf)
+        pred_dir = path.join(self.report_dir, MS.predictions)
+        norm_pred_dir = path.join(pred_dir, MS.normalized)
+        not_norm_pred_dir = path.join(pred_dir, MS.not_normalized)
+        params_dir = path.join(self.report_dir, DN.params)
+        [makedirs (d) for d in [self.report_dir, data_dir, norm_data_dir, not_norm_data_dir, perf_dir, pred_dir, norm_pred_dir, not_norm_pred_dir, params_dir] if not path.exists(d)]
+        logging.info(f'Writing report to {self.report_dir}')
 
-        [makedirs (d) for d in [report_dir, perf_dir, pred_dir, norm_dir, not_norm_dir] if not path.exists(d)]
-        logging.info(f'Writing report to {report_dir}')
 
+        for k, v in self.data_dict[DN.normalized].items():
+            # Write the data, with the model data to the predicted directory
+            pd.DataFrame(v).to_csv(path.join(norm_pred_dir, f'{k}.csv'))
+            # Write just the x, y vars to the data directory
+            pd.DataFrame(v[self.x_vars + self.y_vars]).to_csv(path.join(norm_data_dir, f'{k}.csv'))
 
-        for k, v in self.data_dict.items():
-            for k1, v1 in v.items():
-                if isinstance(v1, pd.DataFrame):
-                    pd.DataFrame(v1).to_csv(path.join(report_dir, f'{k}_{k1}.csv'))
-                else: 
-                    for k2, v2 in v1.items():
-                        pd.DataFrame(v2).to_csv(path.join(report_dir, f'{k}_{k1}_{k2}.csv'))
+        for k, v in self.data_dict[DN.not_normalized].items():
+            # Write the data, with the model data to the predicted directory
+            pd.DataFrame(v).to_csv(path.join(not_norm_pred_dir, f'{k}.csv'))
+            # Write just the x, y vars to the data directory
+            pd.DataFrame(v[self.x_vars + self.y_vars]).to_csv(path.join(norm_data_dir, f'{k}.csv'))
+
 
         # Write the model performance to csv
         for k, v in self.model_performance.items():
-            v.to_csv(path.join(report_dir, f'{k}_model_performance.csv'))
+            v.to_csv(path.join(perf_dir, f'{k}.csv'))
         # Write the model hyperparameters to csv
         try:
-            pd.DataFrame(self.model_hyperparameters, index=[0]).to_csv(path.join(report_dir, 'model_hyperparameters.csv'))
+            pd.DataFrame(self.model_hyperparameters, index=[0]).to_csv(path.join(params_dir, f'{DN.params}.csv'))
         except Exception as e:
             try:
                 logging.warning(f"Error writing model hyperparameters to csv: {e}, trying again")
-                pd.DataFrame(self.model_hyperparameters).to_csv(path.join(report_dir, 'model_hyperparameters.csv'))
+                pd.DataFrame(self.model_hyperparameters).to_csv(path.join(params_dir, f'{DN.params}.csv'))
             except Exception as e2:
                 logging.error(f"Error writing model hyperparameters to csv: {e2}")
     def _validate_hyperparameters(self):
@@ -473,6 +494,67 @@ class Model():
         raise NotImplementedError("This should be implemented by the child class")
 
     @classmethod
-    def load_from_previous_output(cls, save_dir, model_name):
-        print('hi')
-        ...
+    def load_from_previous_output(cls, class_params):# , save_dir, model_name):
+        instance = cls(**class_params)
+        instance.report_dir
+        # Load the data from the performance directory 
+        performance_files = glob.glob(path.join(instance.report_dir, MS.perf, '*.csv'), recursive = True)
+        data_files_norm = glob.glob(path.join(instance.report_dir, MS.data, DN.normalized, '*.csv'), recursive = True)
+        data_files_not_norm = glob.glob(path.join(instance.report_dir, MS.data, DN.not_normalized, '*.csv'), recursive = True)
+
+        prediction_files_norm = glob.glob(path.join(instance.report_dir, MS.predictions, DN.normalized, '*.csv'), recursive = True)
+        prediction_files_not_norm = glob.glob(path.join(instance.report_dir, MS.predictions, DN.not_normalized, '*.csv'), recursive = True)
+
+        # Build data dictionary structure
+        instance.data_dict = Model._get_empty_datadict_struct()
+
+        logging.warning('All data not read in yet. Any subclass functionality (like epoch vs loss) not implemented here')
+        # Model performance 
+        for file in performance_files:
+            k = path.basename(file).split('.')[0]
+            instance.model_performance[k] = pd.read_csv(file, index_col=0)
+        # Predictions are a superset of the data, so we don't need to read in the datafiles 
+        for file in prediction_files_norm:
+            k = path.basename(file).split('.')[0]
+            instance.data_dict[DN.normalized][k] = pd.read_csv(file, index_col=0)
+        for file in prediction_files_not_norm:
+            k = path.basename(file).split('.')[0]
+            instance.data_dict[DN.not_normalized][k] = pd.read_csv(file, index_col=0)
+        return instance 
+    def get_empty_datadict_struct(self):
+        # Build data dictionary structure. Class method to include the evaluation data names
+        data_dict = {
+            DN.not_normalized : 
+            {
+                DN.all_data : None, 
+                DN.train_data: None, 
+                DN.test_data: None
+            },
+            DN.normalized : 
+            {
+                DN.all_data : None,
+                DN.train_data: None, 
+                DN.test_data: None, 
+            }
+        }
+        data_dict[DN.not_normalized].update({eval_name: None for eval_name in self.evaluation_data_names})
+        data_dict[DN.normalized].update({eval_name: None for eval_name in self.evaluation_data_names})
+        return data_dict
+    @classmethod
+    def _get_empty_datadict_struct(cls):
+                # Build data dictionary structure
+        data_dict = {
+            DN.not_normalized : 
+            {
+                DN.all_data : None, 
+                DN.train_data: None, 
+                DN.test_data: None
+            },
+            DN.normalized : 
+            {
+                DN.all_data : None,
+                DN.train_data: None, 
+                DN.test_data: None, 
+            }
+        }
+        return data_dict

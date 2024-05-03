@@ -1,22 +1,19 @@
-from lstm_logger import logger as logging
-from project_globals import DataNames as DN
+import copy
+from os import path
+from itertools import product
+
 import pandas as pd
 import numpy as np
 import torch
 from torch import nn
-from sklearn.preprocessing import MinMaxScaler
 from torch.utils.data import TensorDataset, DataLoader
-from lstm_logger import logger as logging
-import multiprocessing
-import matplotlib.pyplot as plt
-import plotly.graph_objects as go
-from sklearn.calibration import calibration_curve
+from sklearn.preprocessing import MinMaxScaler
+
+from project_globals import DataNames as DN
 from utils import timer_decorator, drop_nans_from_data_dict
+from lstm_logger import logger as logging
 from plotting import plot, finalize_plot
 from timeseriesmodel import TimeSeriesModel
-from memory_profiler import profile
-import copy
-from itertools import product
 
 class SDEBlock(nn.Module):
     """_summary_
@@ -273,7 +270,8 @@ class LSTMSDE_to_train(TimeSeriesModel):
         rmse = copy.deepcopy(losses)
         y_vars_seeds = product(self.
         y_vars, range(self.num_sims))
-        for y_var, seed_num in y_vars_seeds: 
+        for y_var, seed_num in y_vars_seeds:
+            logging.info(f'Training and evaluating LSTM SDE for {y_var} with seed {seed_num}') 
             losses[y_var][seed_num] = self._train(model=self.lstm_sdes[y_var][seed_num],
                         dataloader=self.lstm_data[y_var][DN.dataloaders][DN.train_data], 
                         optimizer=self.optimizers[y_var], 
@@ -330,16 +328,16 @@ class LSTMSDE_to_train(TimeSeriesModel):
             # Need to reshape the numpy array to have shape (n, 1)
             train_data_to_insert = this_data[DN.train_data].numpy().reshape(-1, 1)
             test_data_to_insert = np.concatenate([nan_array, this_data[DN.test_data].numpy().reshape(-1, 1)])
-            data_dict[DN.train_data][f'{y_var}_{self.model_name}_{seed_num}'] = train_data_to_insert
-            data_dict[DN.test_data][f'{y_var}_{self.model_name}_{seed_num}'] = test_data_to_insert
-            data_dict_not_norm[DN.test_data][f'{y_var}_{self.model_name}_{seed_num}'] = self.scaler.inverse_transform(test_data_to_insert)
-            data_dict_not_norm[DN.train_data][f'{y_var}_{self.model_name}_{seed_num}'] = self.scaler.inverse_transform(train_data_to_insert)
+            data_dict[DN.train_data][f'{y_var}_{seed_num}'] = train_data_to_insert
+            data_dict[DN.test_data][f'{y_var}_{seed_num}'] = test_data_to_insert
+            data_dict_not_norm[DN.test_data][f'{y_var}_{seed_num}'] = self.scaler.inverse_transform(test_data_to_insert)
+            data_dict_not_norm[DN.train_data][f'{y_var}_{seed_num}'] = self.scaler.inverse_transform(train_data_to_insert)
             # drop nans to account for windows for rollback data
 
             for eval_filter in self.evaluation_data_names:
                 eval_data_to_insert = this_data[eval_filter].numpy().reshape(-1, 1)
-                data_dict[eval_filter][f'{y_var}_{self.model_name}_{seed_num}'] = eval_data_to_insert
-                data_dict_not_norm[eval_filter][f'{y_var}_{self.model_name}_{seed_num}'] = self.scaler.inverse_transform(eval_data_to_insert)
+                data_dict[eval_filter][f'{y_var}_{seed_num}'] = eval_data_to_insert
+                data_dict_not_norm[eval_filter][f'{y_var}_{seed_num}'] = self.scaler.inverse_transform(eval_data_to_insert)
         data_dict = drop_nans_from_data_dict(data_dict, self, self.fit)
         data_dict_not_norm = drop_nans_from_data_dict(data_dict_not_norm, self, self.fit)
         return {DN.normalized : data_dict, DN.not_normalized : data_dict_not_norm}
@@ -357,7 +355,6 @@ class LSTMSDE_to_train(TimeSeriesModel):
         losses_over_time = []
         mse_over_time = []
         for epoch in range(n_epochs):
-            logging.debug(f'Training for {epoch=}')
             model.train()
             epoch_losses = []
             for X_batch, y_batch in dataloader:
@@ -370,7 +367,8 @@ class LSTMSDE_to_train(TimeSeriesModel):
                 optimizer.step()
             epoch_loss = np.mean(epoch_losses)
             # mse_over_time.append() May ultimately want to pull this in. zsince our loss function is mse, it should be the same thing I think ?
-            logging.info(f'Epoch {epoch+1}/{n_epochs}, Mean Loss: {np.mean(epoch_losses)}')
+            if (epoch + 1 ) % 10 == 0:
+                logging.info(f'Epoch {epoch+1}/{n_epochs}, Mean Loss: {np.mean(epoch_losses)}')
             losses_over_time.append(np.mean(epoch_losses))
         return losses_over_time
     def save(self):
@@ -546,14 +544,18 @@ class LSTMSDE_to_train(TimeSeriesModel):
         finalize_plot(fig, 
                        'Losses vs. Epoch', 
                        'train_loss', 
-                       self.save_dir, 
+                       path.join(self.plots_dir, 'losses_over_time'), 
                        save_png = self.save_png, 
                        save_html = self.save_html)
         
         super().plot()
 
-    def load_from_previous_output(cls, save_dir, model_name):
-        super().load_from_previous_output(save_dir, model_name)
+    @classmethod
+    def load_from_previous_output(cls, class_params):# , save_dir, model_name):
+        instance = super().load_from_previous_output(class_params)
+        return instance
+        # Any custom stuff needed here
+    
 
 if __name__ == "__main__":
     # Set manual seed for reproducibility
