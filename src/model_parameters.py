@@ -48,11 +48,21 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
     models_dict = {}
     if gbm: 
         models_dict["GBM"] = {
+            'gbm_calculated_1_day' : {
+                DN.params: {
+                    'calculate_mu' : True, 
+                    'calculate_sigma': True,
+                    'window_size': 1,
+                    'dt' : 1, # day
+                    'num_sims' : 5
+                },
+            },
+
             'gbm_calculated_10_days' : {
                 DN.params: {
                     'calculate_mu' : True, 
                     'calculate_sigma': True,
-                    'window_size': None,
+                    'window_size': 10,
                     'dt' : 1, # day
                     'num_sims' : 5
                 },
@@ -67,12 +77,56 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
                     'num_sims' : 5
                 },
             },
-
             'gbm_calculated_50_days' : {
                 DN.params: {
                     'calculate_mu' : True, 
                     'calculate_sigma': True,
                     'window_size': 50,
+                    'dt' : 1,
+                    'num_sims' : 5
+                },
+            }  ,
+            'gbm_calculated_500_days' : {
+                DN.params: {
+                    'calculate_mu' : True, 
+                    'calculate_sigma': True,
+                    'window_size': 500,
+                    'dt' : 1,
+                    'num_sims' : 5
+                },
+            }  ,
+            'gbm_calculated_1000_days' : {
+                DN.params: {
+                    'calculate_mu' : True, 
+                    'calculate_sigma': True,
+                    'window_size': 1000,
+                    'dt' : 1,
+                    'num_sims' : 5
+                },
+            }  ,
+            'gbm_calculated_2000_days' : {
+                DN.params: {
+                    'calculate_mu' : True, 
+                    'calculate_sigma': True,
+                    'window_size': 2000,
+                    'dt' : 1,
+                    'num_sims' : 5
+                },
+            }  ,
+            'gbm_calculated_3000_days' : {
+                DN.params: {
+                    'calculate_mu' : True, 
+                    'calculate_sigma': True,
+                    'window_size': 3000,
+                    'dt' : 1,
+                    'num_sims' : 5
+                },
+            }  ,
+            'gbm_calculated_all_days' : {
+                DN.params: {
+                    'calculate_mu' : True, 
+                    'calculate_sigma': True,
+                    'window_size': None,
                     'dt' : 1,
                     'num_sims' : 5
                 },

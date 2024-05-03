@@ -279,10 +279,27 @@ class Analysis():
                 # Only plot the actual response onse
                 y_cols_to_plot = y_vars + proc_responses if modelkey == first_model else proc_responses
                 # First pass figs[k] is going to be null, but plot can handle that
+                # Plot the actual response data for the first model only 
+                if modelkey == first_model:
+                    figs[k] = plot_multiple_y_cols(
+                        df=this_data, 
+                        x_col=x_vars[0], 
+                        y_cols=y_vars,
+                        trace_name_to_prepend='', 
+                        plot_type='line', 
+                        title=None,
+                        fig=figs[k],
+                        output_dir=None, 
+                        output_name=None, 
+                        save_png=False, 
+                        save_html=False,
+                        finalize=False)      
+
                 figs[k] = plot_multiple_y_cols(
                     df=this_data, 
                     x_col=x_vars[0], 
-                    y_cols=y_cols_to_plot,
+                    #y_cols=y_cols_to_plot,
+                    y_cols = proc_responses,
                     trace_name_to_prepend=modelkey, 
                     plot_type='line', 
                     title=None,
@@ -292,6 +309,7 @@ class Analysis():
                     save_png=False, 
                     save_html=False,
                     finalize=False)
+    
                 
         # Finalize the plot for each plot in figs 
         for k, fig in figs.items():

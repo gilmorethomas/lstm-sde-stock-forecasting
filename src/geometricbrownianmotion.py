@@ -71,8 +71,9 @@ class GeometricBrownianMotion(TimeSeriesModel):
             logging.info('No time window specified in model hyperparameters, using default of last 10 days')
             self.model_hyperparameters['window_size'] = 100
         elif self.model_hyperparameters['window_size'] is None:
-            logging.info('No time window specified in model hyperparameters, using all data')
-            self.model_hyperparameters['window_size'] = self.data_dict[DN.normalized][DN.train_data].shape[0]
+            window_size = self.data_dict[DN.normalized][DN.train_data].shape[0]
+            logging.info(f'No time window specified in model hyperparameters, using all data, with size {window_size}')
+            self.model_hyperparameters['window_size'] = window_size
         if 'dt' not in self.model_hyperparameters: 
             logging.info('No time step specified in model hyperparameters, using default of 10e-3')
             self.model_hyperparameters['dt'] = 10e-3
