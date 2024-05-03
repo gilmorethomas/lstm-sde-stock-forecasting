@@ -15,6 +15,20 @@ class DataNames:
     x = 'x'
     y = 'y'
     evaluation = 'evaluation'
+    params = 'model_hyperparameters'
+    # Structure for a data dict can be expected to be 
+    # data_dict = {
+    #    DN.normalized'normalized' : {
+    #        'train_data' : pd.DataFrame,
+    #        'test_data' : pd.DataFrame
+    #    },
+    #    'not_normalized' : {
+    #        'train_data' : pd.DataFrame,
+    #        'test_data' : pd.DataFrame
+    #    }
+    # }
+
+
 
 class ModelStructure: 
     report = 'report'

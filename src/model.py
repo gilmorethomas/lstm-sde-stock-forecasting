@@ -1,7 +1,7 @@
 from lstm_logger import logger as logging
 from plotting import plot_all_x_y_combinations, plot_multiple_dfs
 from project_globals import DataNames as DN
-from project_globals import DataNames as MS
+from project_globals import ModelStructure as MS
 
 from os import path, makedirs
 import pickle
@@ -44,6 +44,8 @@ class Model():
         self.evaluation_filters = evaluation_filters
         self.evaluation_data_names = list(evaluation_filters.keys())
         self.save_dir = save_dir
+        self.plots_dir = path.join(save_dir, 'plots')
+        self.report_dir = path.join(save_dir, 'report')
         if not path.exists(save_dir):
             logging.info(f"Creating save directory {save_dir}")
             makedirs(save_dir)
@@ -102,13 +104,15 @@ class Model():
         self.model_responses[DN.proc], self.data_dict[DN.not_normalized][DN.train_data] = self._add_rollup_data(data_dict[DN.not_normalized][DN.train_data])
         _, self.data_dict[DN.normalized][DN.train_data] = self._add_rollup_data(data_dict[DN.normalized][DN.train_data])
         _, self.data_dict[DN.not_normalized][DN.train_data] = self._add_rollup_data(data_dict[DN.not_normalized][DN.train_data])
-        _, self.data_dict[DN.normalized][DN.train_data] = self._add_rollup_data(data_dict[DN.normalized][DN.train_data])
+        _, self.data_dict[DN.normalized][DN.test_data] = self._add_rollup_data(data_dict[DN.normalized][DN.test_data])
+        _, self.data_dict[DN.not_normalized][DN.test_data] = self._add_rollup_data(data_dict[DN.not_normalized][DN.test_data])
+
         for eval_name in self.evaluation_data_names:
             _, self.data_dict[DN.not_normalized][eval_name] = self._add_rollup_data(self.data_dict[DN.not_normalized][eval_name])
             _, self.data_dict[DN.normalized][eval_name] = self._add_rollup_data(self.data_dict[DN.normalized][eval_name])
 
         self._plot_fit(DN.train_data)
-        self._plot_fit(DN.train_data)
+        self._plot_fit(DN.test_data)
         [self._plot_fit(eval_name) for eval_name in self.evaluation_data_names]
         #self._plot_fit('evaluation_data')
         self._print_train_end_message()
@@ -192,7 +196,7 @@ class Model():
             x_cols=self.x_vars, 
             y_cols=self.y_vars, 
             plot_type='line', 
-            output_dir=path.join(self.save_dir, 'test_train_split'), 
+            output_dir=path.join(self.plots_dir, 'test_train_split'), 
             output_name=self.model_name,
             save_png=self.save_png, 
             save_html=self.save_html,
@@ -259,10 +263,15 @@ class Model():
         # Build a dictionary of the columns that are not x_vars
         logging.info(f'Plotting {data_type}')
         # Byuild a dictionary with dataframes with one column each 
-        if data_type in [DN.train_data, DN.train_data] + self.evaluation_data_names:
-            all_data = {col: self.data_dict[norm][data_type][self.x_vars + [col]] for col in self.y_vars + self.model_responses[DN.proc] + self.model_responses[DN.raw]}
+        if data_type in [DN.train_data, DN.test_data] + self.evaluation_data_names:
+            try:
+                all_data = {col: self.data_dict[norm][data_type][self.x_vars + [col]] for col in self.y_vars + self.model_responses[DN.proc] + self.model_responses[DN.raw]}
+            except KeyError as e:
+                logging.error(f"Dataframe {data_type} does not exist in the data dictionary or does not have expected columns")
+                return
         else: 
-            raise NotImplementedError("Plotting overlaid datasets from different periods not enabled yet")
+            import pdb; pdb.set_trace()
+            raise NotImplementedError(f"Plot fit not implemented for data type {data_type}.")
         # Rename the columns with {y_var}_{model_name}_{seed} to be {y_var}. This is so we can pass the 
         for key in all_data.keys():
             cols = {key: col.split('_')[0] for col in all_data[key].columns if col not in self.x_vars}
@@ -272,13 +281,14 @@ class Model():
         all_data_raw = {k: v for k, v in all_data.items() if k in self.model_responses[DN.raw] + self.y_vars}
         all_data_proc = {k: v for k, v in all_data.items() if k in self.model_responses[DN.proc] + self.y_vars}
         # Plot the raw data
+        output_dir = path.join(self.plots_dir, 'model_predictions', data_type)
         title = f'{data_type} Raw'
         plot_multiple_dfs(all_data_raw,
             title=title,
             x_cols=self.x_vars, 
             y_cols=self.y_vars,
             plot_type='line', 
-            output_dir=path.join(self.save_dir, 'model_predictions'),
+            output_dir=output_dir,
             output_name=f'{self.model_name}_{data_type}_all_models', 
             save_png=self.save_png, 
             save_html=self.save_html,
@@ -290,7 +300,7 @@ class Model():
             x_cols=self.x_vars, 
             y_cols=self.y_vars,
             plot_type='line', 
-            output_dir=path.join(self.save_dir, 'model_predictions'),
+            output_dir=output_dir,
             output_name=f'{self.model_name}_{data_type}_all_models_processed', 
             save_png=self.save_png, 
             save_html=self.save_html,
@@ -302,7 +312,7 @@ class Model():
             x_cols=self.x_vars, 
             y_cols=self.y_vars,
             plot_type='line', 
-            output_dir=path.join(self.save_dir, 'model_predictions'),
+            output_dir=output_dir,
             output_name=f'{self.model_name}_{data_type}_all_models_raw_and_processed', 
             save_png=self.save_png, 
             save_html=self.save_html,
@@ -347,7 +357,7 @@ class Model():
                 x_cols=self.x_vars, 
                 y_cols=y_cols, 
                 plot_type=plot_type, 
-                output_dir=path.join(self.save_dir, DN.train_data, 'single_iterations'), 
+                output_dir=path.join(self.plots_dir, 'model_predictions', DN.train_data, 'single_iterations'), 
                 output_name=self.model_name, 
                 save_png=self.save_png, 
                 save_html=self.save_html)
@@ -438,34 +448,33 @@ class Model():
         """Writes the output data to csvs
         """        
         # Write the train and model data to csv 
-        report_dir = path.join(self.save_dir, MS.report)
-        perf_dir = path.join(report_dir, MS.performance)
-        pred_dir = path.join(report_dir, MS.predictions)
+        data_dir = path.join(self.report_dir, 'data')
+        norm_data_dir = path.join(data_dir, DN.normalized)
+        not_norm_data_dir = path.join(data_dir, DN.not_normalized)
+        perf_dir = path.join(self.report_dir, MS.perf)
+        pred_dir = path.join(self.report_dir, MS.predictions)
         norm_dir = path.join(pred_dir, MS.normalized)
         not_norm_dir = path.join(pred_dir, MS.not_normalized)
+        params_dir = path.join(self.report_dir, DN.params)
+        [makedirs (d) for d in [self.report_dir, data_dir, norm_data_dir, not_norm_data_dir, perf_dir, pred_dir, norm_dir, not_norm_dir, params_dir] if not path.exists(d)]
+        logging.info(f'Writing report to {self.report_dir}')
 
-        [makedirs (d) for d in [report_dir, perf_dir, pred_dir, norm_dir, not_norm_dir] if not path.exists(d)]
-        logging.info(f'Writing report to {report_dir}')
 
-
-        for k, v in self.data_dict.items():
-            for k1, v1 in v.items():
-                if isinstance(v1, pd.DataFrame):
-                    pd.DataFrame(v1).to_csv(path.join(report_dir, f'{k}_{k1}.csv'))
-                else: 
-                    for k2, v2 in v1.items():
-                        pd.DataFrame(v2).to_csv(path.join(report_dir, f'{k}_{k1}_{k2}.csv'))
+        for k, v in self.data_dict[DN.normalized].items():
+            pd.DataFrame(v).to_csv(path.join(data_dir, DN.normalized, f'{k}.csv'))
+        for k, v in self.data_dict[DN.not_normalized].items():
+            pd.DataFrame(v).to_csv(path.join(data_dir, f'{k}.csv'))
 
         # Write the model performance to csv
         for k, v in self.model_performance.items():
-            v.to_csv(path.join(report_dir, f'{k}_model_performance.csv'))
+            v.to_csv(path.join(perf_dir, f'{k}_model_performance.csv'))
         # Write the model hyperparameters to csv
         try:
-            pd.DataFrame(self.model_hyperparameters, index=[0]).to_csv(path.join(report_dir, 'model_hyperparameters.csv'))
+            pd.DataFrame(self.model_hyperparameters, index=[0]).to_csv(path.join(params_dir, f'{DN.params}.csv'))
         except Exception as e:
             try:
                 logging.warning(f"Error writing model hyperparameters to csv: {e}, trying again")
-                pd.DataFrame(self.model_hyperparameters).to_csv(path.join(report_dir, 'model_hyperparameters.csv'))
+                pd.DataFrame(self.model_hyperparameters).to_csv(path.join(params_dir, f'{DN.params}.csv'))
             except Exception as e2:
                 logging.error(f"Error writing model hyperparameters to csv: {e2}")
     def _validate_hyperparameters(self):

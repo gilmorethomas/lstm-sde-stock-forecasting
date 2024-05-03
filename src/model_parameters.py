@@ -1,5 +1,6 @@
 from dateutil.relativedelta import relativedelta
 from pandas import to_datetime
+from project_globals import DataNames as DN 
 def create_test_train_split_params(
     start_date_train='2010-01-01', # FOR TESTING 
     start_date_test='2020-10-31', # FOR TESTING 
@@ -48,7 +49,7 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
     if gbm: 
         models_dict["GBM"] = {
             'gbm_calculated_10_days' : {
-                'model_hyperparameters': {
+                DN.params: {
                     'calculate_mu' : True, 
                     'calculate_sigma': True,
                     'window_size': None,
@@ -58,7 +59,7 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
             },
 
             'gbm_calculated_20_days' : {
-                'model_hyperparameters': {
+                DN.params: {
                     'calculate_mu' : True, 
                     'calculate_sigma': True,
                     'window_size': 20,
@@ -68,7 +69,7 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
             },
 
             'gbm_calculated_50_days' : {
-                'model_hyperparameters': {
+                DN.params: {
                     'calculate_mu' : True, 
                     'calculate_sigma': True,
                     'window_size': 50,
@@ -77,7 +78,7 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
                 },
             }  ,
             # 'GBM Steady Large Increase' : {
-            #     'model_hyperparameters': {
+            #     DN.params: {
             #         'calculate_mu' : False, 
             #         'calculate_sigma': False, 
             #         'mu': 0.0001, 
@@ -86,7 +87,7 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
             #     },
             # },
             # 'GBM Unsteady 1' : {
-            #     'model_hyperparameters': {
+            #     DN.params: {
             #         'calculate_mu' : False, 
             #         'calculate_sigma': False, 
             #         'mu': 0.1, 
@@ -95,7 +96,7 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
             #     },
             # },
             # 'GBM Unsteady 2' : {
-            #     'model_hyperparameters': {
+            #     DN.params: {
             #         'calculate_mu' : False, 
             #         'calculate_sigma': False, 
             #         'mu': 0.1, 
@@ -107,7 +108,7 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
     if lstm_sde:
         models_dict["LSTM_SDE"] = {
             'lstm_sde_1' : {
-                'model_hyperparameters': {
+                DN.params: {
                     'num_sims' : 1,
                     'num_epochs' : 10, 
                     'time_steps' : 10,

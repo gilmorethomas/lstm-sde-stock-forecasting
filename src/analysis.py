@@ -139,7 +139,7 @@ class Analysis():
                     logging.info(f"Creating GBM model {model_name}")
                     if not self.load_previous_results: 
                         model = GeometricBrownianMotion(data=self.dataset_df,
-                            model_hyperparameters=model_dict['model_hyperparameters'], 
+                            model_hyperparameters=model_dict[DN.params], 
                             save_dir=path.join(self.output_directory, 'gbm', model_name), 
                             model_name=model_name,
                             x_vars=self.x_vars,
@@ -164,7 +164,7 @@ class Analysis():
                     logging.info(f"Creating LSTM SDE model {model_name}")
                     if not self.load_previous_results: 
                         model = LSTMSDE(data=self.dataset_df,
-                            model_hyperparameters=model_dict['model_hyperparameters'], 
+                            model_hyperparameters=model_dict[DN.params], 
                             save_dir=path.join(self.output_directory, 'lstm_sde', model_name), 
                             model_name=model_name,
                             x_vars=self.x_vars,

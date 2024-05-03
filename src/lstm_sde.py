@@ -1,22 +1,19 @@
-from lstm_logger import logger as logging
-from project_globals import DataNames as DN
+import copy
+from os import path
+from itertools import product
+
 import pandas as pd
 import numpy as np
 import torch
 from torch import nn
-from sklearn.preprocessing import MinMaxScaler
 from torch.utils.data import TensorDataset, DataLoader
-from lstm_logger import logger as logging
-import multiprocessing
-import matplotlib.pyplot as plt
-import plotly.graph_objects as go
-from sklearn.calibration import calibration_curve
+from sklearn.preprocessing import MinMaxScaler
+
+from project_globals import DataNames as DN
 from utils import timer_decorator, drop_nans_from_data_dict
+from lstm_logger import logger as logging
 from plotting import plot, finalize_plot
 from timeseriesmodel import TimeSeriesModel
-from memory_profiler import profile
-import copy
-from itertools import product
 
 class SDEBlock(nn.Module):
     """_summary_
@@ -273,7 +270,8 @@ class LSTMSDE_to_train(TimeSeriesModel):
         rmse = copy.deepcopy(losses)
         y_vars_seeds = product(self.
         y_vars, range(self.num_sims))
-        for y_var, seed_num in y_vars_seeds: 
+        for y_var, seed_num in y_vars_seeds:
+            logging.info(f'Training and evaluating LSTM SDE for {y_var} with seed {seed_num}') 
             losses[y_var][seed_num] = self._train(model=self.lstm_sdes[y_var][seed_num],
                         dataloader=self.lstm_data[y_var][DN.dataloaders][DN.train_data], 
                         optimizer=self.optimizers[y_var], 
@@ -370,7 +368,8 @@ class LSTMSDE_to_train(TimeSeriesModel):
                 optimizer.step()
             epoch_loss = np.mean(epoch_losses)
             # mse_over_time.append() May ultimately want to pull this in. zsince our loss function is mse, it should be the same thing I think ?
-            logging.info(f'Epoch {epoch+1}/{n_epochs}, Mean Loss: {np.mean(epoch_losses)}')
+            if (epoch + 1 ) % 10 == 0:
+                logging.info(f'Epoch {epoch+1}/{n_epochs}, Mean Loss: {np.mean(epoch_losses)}')
             losses_over_time.append(np.mean(epoch_losses))
         return losses_over_time
     def save(self):
@@ -549,7 +548,7 @@ class LSTMSDE_to_train(TimeSeriesModel):
         finalize_plot(fig, 
                        'Losses vs. Epoch', 
                        'train_loss', 
-                       self.save_dir, 
+                       path.join(self.plots_dir, 'losses_over_time'), 
                        save_png = self.save_png, 
                        save_html = self.save_html)
         
