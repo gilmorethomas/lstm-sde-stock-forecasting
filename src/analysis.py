@@ -15,7 +15,6 @@ from lstm_sde import LSTMSDE_to_train as LSTMSDE
             
 class Analysis(): 
     def __init__(self, dataset_name, dataset_df, x_vars, y_vars, output_directory, seed, preprocessing_callback=None, save_html=True, save_png=True, load_previous_results=False):
-         
         self.dataset_name = dataset_name
         self._raw_dataset_df = dataset_df
         self.preprocessing_callback = preprocessing_callback
@@ -107,62 +106,81 @@ class Analysis():
         # For each model in the models dict, call the requisite model class's test method
         # For each model in the models dict, call the requisite model class's predict method
         # For each model in the models dict, call the requisite model class's save method
+
         for model_type, all_models_for_type in self.models_dict.items():
             if model_type.lower() == 'lstm' and all_models_for_type is not None and len(all_models_for_type) > 0: 
                 logging.info("Creating LSTM models")
                 for model_name, model_dict in all_models_for_type.items():
                     logging.info(f"Creating LSTM model {model_name}")
-                    model = LSTM(data=self.dataset_df, 
-                        model_hyperparameters=model_dict['library_hyperparameters'],
-                        units = model_dict['units'],
-                        save_dir=path.join(self.output_directory, 'lstm', model_name), 
-                        model_name=model_name,
-                        x_vars=self.x_vars,
-                        y_vars=self.y_vars,
-                        seed=self._rand_state_mgr,
-                        test_split_filter=model_dict['test_split_filter'],
-                        train_split_filter=model_dict['train_split_filter'],
-                        evaluation_filters=model_dict['evaluation_filters'], 
-                        save_png=self.save_png,
-                        save_html=self.save_html)
-                    self._call_model_funcs(model)
+                    if not self.load_previous_results: 
+                        model = LSTM(data=self.dataset_df, 
+                            model_hyperparameters=model_dict['library_hyperparameters'],
+                            units = model_dict['units'],
+                            save_dir=path.join(self.output_directory, 'lstm', model_name), 
+                            model_name=model_name,
+                            x_vars=self.x_vars,
+                            y_vars=self.y_vars,
+                            seed=self._rand_state_mgr,
+                            test_split_filter=model_dict['test_split_filter'],
+                            train_split_filter=model_dict['train_split_filter'],
+                            evaluation_filters=model_dict['evaluation_filters'], 
+                            save_png=self.save_png,
+                            save_html=self.save_html)
+                        self._call_model_funcs(model)
+                    else: 
+                        model = LSTM.load_from_previous_output(LSTM, path.join(self.output_directory, 'lstm', model_name), model_name)
+                    # Save the model off in the models_dict
+                    self.models_dict[model_type][model_name]['model_object'] = model
+
             elif model_type.lower() == 'gbm':
                 logging.info("Creating GBM models")
                 for model_name, model_dict in all_models_for_type.items():
                     # Create a GBM model
                     logging.info(f"Creating GBM model {model_name}")
-                    model = GeometricBrownianMotion(data=self.dataset_df,
-                        model_hyperparameters=model_dict['model_hyperparameters'], 
-                        save_dir=path.join(self.output_directory, 'gbm', model_name), 
-                        model_name=model_name,
-                        x_vars=self.x_vars,
-                        y_vars=self.y_vars,
-                        seed=self._rand_state_mgr,
-                        test_split_filter=model_dict['test_split_filter'],
-                        train_split_filter=model_dict['train_split_filter'],
-                        evaluation_filters=model_dict['evaluation_filters'], 
-                        save_png=self.save_png,
-                        save_html=self.save_html)
-                    self._call_model_funcs(model)
+                    if not self.load_previous_results: 
+                        model = GeometricBrownianMotion(data=self.dataset_df,
+                            model_hyperparameters=model_dict['model_hyperparameters'], 
+                            save_dir=path.join(self.output_directory, 'gbm', model_name), 
+                            model_name=model_name,
+                            x_vars=self.x_vars,
+                            y_vars=self.y_vars,
+                            seed=self._rand_state_mgr,
+                            test_split_filter=model_dict['test_split_filter'],
+                            train_split_filter=model_dict['train_split_filter'],
+                            evaluation_filters=model_dict['evaluation_filters'], 
+                            save_png=self.save_png,
+                            save_html=self.save_html)
+                        self._call_model_funcs(model)
+                    else: 
+                        model = GeometricBrownianMotion.load_from_previous_output(GeometricBrownianMotion, path.join(self.output_directory, 'lstm', model_name), model_name)
+                    # Save the model off in the models_dict
+                    self.models_dict[model_type][model_name]['model_object'] = model
+
             elif model_type.lower() == 'lstm_sde':
+                
                 logging.info("Creating LSTM SDE models")
                 for model_name, model_dict in all_models_for_type.items():
                     # Create a LSTM SDE model
                     logging.info(f"Creating LSTM SDE model {model_name}")
-                    model = LSTMSDE(data=self.dataset_df,
-                        model_hyperparameters=model_dict['model_hyperparameters'], 
-                        save_dir=path.join(self.output_directory, 'lstm_sde', model_name), 
-                        model_name=model_name,
-                        x_vars=self.x_vars,
-                        y_vars=self.y_vars,
-                        seed=self._rand_state_mgr,
-                        test_split_filter=model_dict['test_split_filter'],
-                        train_split_filter=model_dict['train_split_filter'],
-                        evaluation_filters=model_dict['evaluation_filters'], 
-                        save_png=self.save_png,
-                        save_html=self.save_html)
-                    self._call_model_funcs(model)
-                    
+                    if not self.load_previous_results: 
+                        model = LSTMSDE(data=self.dataset_df,
+                            model_hyperparameters=model_dict['model_hyperparameters'], 
+                            save_dir=path.join(self.output_directory, 'lstm_sde', model_name), 
+                            model_name=model_name,
+                            x_vars=self.x_vars,
+                            y_vars=self.y_vars,
+                            seed=self._rand_state_mgr,
+                            test_split_filter=model_dict['test_split_filter'],
+                            train_split_filter=model_dict['train_split_filter'],
+                            evaluation_filters=model_dict['evaluation_filters'], 
+                            save_png=self.save_png,
+                            save_html=self.save_html)
+                        self._call_model_funcs(model)
+                    else: 
+                        model = LSTMSDE.load_from_previous_output(LSTMSDE, path.join(self.output_directory, 'lstm_sde', model_name), model_name)
+                    # Save the model off in the models_dict
+                    self.models_dict[model_type][model_name]['model_object'] = model
+
             else:   
                 logging.error(f"Model {model_type} not implemented yet")
     
@@ -184,7 +202,17 @@ class Analysis():
 
     def _set_models(self, models_dict):
         # set models for the analysis object
+        # For all models in the models_dict, create a model object and store it in the models_dict
+
+        # Assuming model_dict is a dictionary where the first level keys are the model types, and the second level keys are the model names
+
+        for model_type, model_type_dict in models_dict.items():
+            for model_name in model_type_dict: 
+                models_dict[model_type][model_name]['model_object'] = None
+
         self.models_dict = models_dict
+
+
 
     def _get_models(self):
         # get models for the analysis object

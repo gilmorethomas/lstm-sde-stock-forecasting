@@ -271,7 +271,8 @@ class LSTMSDE_to_train(TimeSeriesModel):
         losses = {y_var: {seed_num: [] for seed_num in range(self.num_sims)} for y_var in self.y_vars}
         y_pred = copy.deepcopy(losses)
         rmse = copy.deepcopy(losses)
-        y_vars_seeds = product(self.y_vars, range(self.num_sims))
+        y_vars_seeds = product(self.
+        y_vars, range(self.num_sims))
         for y_var, seed_num in y_vars_seeds: 
             losses[y_var][seed_num] = self._train(model=self.lstm_sdes[y_var][seed_num],
                         dataloader=self.lstm_data[y_var][DN.dataloaders][DN.train_data], 
@@ -280,25 +281,25 @@ class LSTMSDE_to_train(TimeSeriesModel):
                         loss_fn=self.loss_fn)
             y_pred[y_var][seed_num], rmse[y_var][seed_num] = {}, {}
             # evaluate train
-                y_pred[y_var][seed_num][datakey], rmse[y_var][seed_num]['train'] = self._eval(
-                    datatype = 'train', model=self.lstm_sdes[y_var][seed_num], 
-                    loss_fn=self.loss_fn, 
-                    x_input=self.lstm_data[y_var]['tensors']['x']['train'], 
-                    y_target=self.lstm_data[y_var]['tensors']['y']['train'])
+            y_pred[y_var][seed_num][DN.train_data], rmse[y_var][seed_num][DN.train_data] = self._eval(
+                eval_type = DN.train_data, model=self.lstm_sdes[y_var][seed_num], 
+                loss_fn=self.loss_fn, 
+                x_input=self.lstm_data[y_var][DN.tensors][DN.x][DN.train_data], 
+                y_target=self.lstm_data[y_var][DN.tensors][DN.y][DN.train_data])
             # evaluate test 
-                y_pred[y_var][seed_num][datakey], rmse[y_var][seed_num]['train'] = self._eval(
-                    datatype = 'test', model=self.lstm_sdes[y_var][seed_num], 
-                    loss_fn=self.loss_fn, 
-                    x_input=self.lstm_data[y_var]['tensors']['x']['test'], 
-                    y_target=self.lstm_data[y_var]['tensors']['y']['test'])
+            y_pred[y_var][seed_num][DN.test_data], rmse[y_var][seed_num][DN.test_data] = self._eval(
+                eval_type = DN.test_data, model=self.lstm_sdes[y_var][seed_num], 
+                loss_fn=self.loss_fn, 
+                x_input=self.lstm_data[y_var][DN.tensors][DN.x][DN.test_data], 
+                y_target=self.lstm_data[y_var][DN.tensors][DN.y][DN.test_data])
             # evaluate evaluation_periods 
             for eval_name in self.evaluation_data_names:
-                y_pred[y_var][seed_num][eval_name], rmse[y_var][seed_num]['train'] = self._eval(
-                    datatype = 'evaluation', 
+                y_pred[y_var][seed_num][eval_name], rmse[y_var][seed_num][DN.train_data] = self._eval(
+                    eval_type = DN.evaluation, 
                     model=self.lstm_sdes[y_var][seed_num], 
                     loss_fn=self.loss_fn, 
-                    x_input=self.lstm_data[y_var]['tensors']['x'][eval_name], 
-                    y_target=self.lstm_data[y_var]['tensors']['y'][eval_name])
+                    x_input=self.lstm_data[y_var][DN.tensors][DN.x][eval_name], 
+                    y_target=self.lstm_data[y_var][DN.tensors][DN.y][eval_name])
                 
         self.losses_over_time = losses
         self.rmse = rmse 
@@ -385,10 +386,10 @@ class LSTMSDE_to_train(TimeSeriesModel):
         Returns:
             _type_: _description_
         """    
-        model.eval()
-        if eval_type == 'evaluation': 
-            y_pred_train, rmse = predict_future_steps()
-        else: 
+        #model.eval()
+        #if eval_type == 'evaluation': 
+        #    y_pred_train, rmse = predict_future_steps()
+        if 1 == 1: # else: 
             with torch.no_grad():
                 y_pred_train = model(x_input)
                 y_pred_train = y_pred_train.squeeze()  # remove extra dimensions from outputs
@@ -422,6 +423,50 @@ class LSTMSDE_to_train(TimeSeriesModel):
         return predictions
     #@profile
     def _prefit_functions(self): 
+        """_summary_
+
+        Returns:
+            dict: Dictionary with all the data needed for the model. Formatted as follows
+
+            {
+                y_var: {
+                    DN.data: {
+                        DN.x: {
+                            DN.train_data: np.array,
+                            DN.test_data: np.array,
+                            evaluation_filter1: np.array
+                            evaluation_filter2: np.array
+                        },
+                        DN.y: {
+                            DN.train_data: np.array,
+                            DN.test_data: np.array,
+                            evaluation_filter1: np.array
+                            evaluation_filter2: np.array
+                        }
+                    },
+                    DN.tensors: {
+                        DN.x: {
+                            DN.train_data: torch.tensor,
+                            DN.test_data: torch.tensor,
+                            evaluation_filter1: torch.tensor
+                            evaluation_filter2: torch.tensor
+                        },
+                        DN.y: {
+                            DN.train_data: torch.tensor,
+                            DN.test_data: torch.tensor,
+                            evaluation_filter1: torch.tensor
+                            evaluation_filter2: torch.tensor
+                        }
+                    },
+                    DN.dataloaders: {
+                        DN.train_data: torch DataLoader,
+                        DN.test_data: torch DataLoader,
+                        evaluation_filter1: torch DataLoader,
+                        evaluation_filter2: torch DataLoader
+
+                    }
+                }
+        """        
         window_size = self.model_hyperparameters['time_steps']
         batch_size = self.model_hyperparameters['batch_size']
         shuffle = self.model_hyperparameters['shuffle']
@@ -442,23 +487,23 @@ class LSTMSDE_to_train(TimeSeriesModel):
             train_data = np.array(train_data_df[var]).reshape(-1, 1)
             test_data = np.array(self.data_dict[DN.normalized][DN.test_data][var]).reshape(-1, 1)
             model_dict = {} 
-            data = {x: {} for x in ['x', 'y']}
-            tensors = {x: {} for x in ['x', 'y']}
+            data = {x: {} for x in [DN.x, DN.y]}
+            tensors = {x: {} for x in [DN.x, DN.y]}
             dataloaders = {}
 
             x, y  = LSTMSDE_to_train._create_dataset(train_data, window_size) 
             x_torch = torch.from_numpy(x)
             y_torch = torch.from_numpy(y)
             dl = DataLoader(TensorDataset(x_torch, y_torch), batch_size=batch_size, shuffle=shuffle)
-            data['x'][DN.train_data], data['y'][DN.train_data] = x, y
-            tensors['x'][DN.train_data], tensors['y'][DN.train_data] = x_torch, y_torch
+            data[DN.x][DN.train_data], data[DN.y][DN.train_data] = x, y
+            tensors[DN.x][DN.train_data], tensors[DN.y][DN.train_data] = x_torch, y_torch
             dataloaders[DN.train_data] = dl 
 
             x, y =   LSTMSDE_to_train._create_dataset(test_data, window_size)
             x_torch = torch.from_numpy(x)
             y_torch = torch.from_numpy(y)
-            data['x'][DN.test_data], data['y'][DN.test_data] = x, y
-            tensors['x'][DN.test_data], tensors['y'][DN.test_data] = x_torch, y_torch
+            data[DN.x][DN.test_data], data[DN.y][DN.test_data] = x, y
+            tensors[DN.x][DN.test_data], tensors[DN.y][DN.test_data] = x_torch, y_torch
             dl = DataLoader(TensorDataset(x_torch, y_torch), batch_size=batch_size, shuffle=shuffle)
             dataloaders[DN.test_data] = dl
 
@@ -467,14 +512,14 @@ class LSTMSDE_to_train(TimeSeriesModel):
                 eval_data = np.array(eval_data_df[var]).reshape(-1, 1)
                 # Create the dataset and targets for each of the eval sets 
                 eval_data, eval_targets = LSTMSDE_to_train._create_dataset(eval_data, window_size)
-                data['x'][eval_filter] = eval_data
-                data['y'][eval_filter] = eval_targets
+                data[DN.x][eval_filter] = eval_data
+                data[DN.y][eval_filter] = eval_targets
                 eval_data_tensor = torch.from_numpy(eval_data)
                 eval_targets_tensor = torch.from_numpy(eval_targets)
-                tensors['x'][eval_filter] = eval_data_tensor
-                tensors['y'][eval_filter] = eval_targets_tensor
+                tensors[DN.x][eval_filter] = eval_data_tensor
+                tensors[DN.y][eval_filter] = eval_targets_tensor
                 dataloaders[eval_filter] = DataLoader(TensorDataset(eval_data_tensor, eval_targets_tensor), batch_size=batch_size, shuffle=shuffle)
-            total_model_dict[var] = {'data' : data, 'tensors' : tensors, DN.dataloaders : dataloaders}
+            total_model_dict[var] = {'data' : data, DN.tensors : tensors, DN.dataloaders : dataloaders}
         return total_model_dict
         # cre
 
@@ -509,6 +554,9 @@ class LSTMSDE_to_train(TimeSeriesModel):
                        save_html = self.save_html)
         
         super().plot()
+
+    def load_from_previous_output(cls, save_dir, model_name):
+        super().load_from_previous_output(save_dir, model_name)
 
 if __name__ == "__main__":
     # Set manual seed for reproducibility

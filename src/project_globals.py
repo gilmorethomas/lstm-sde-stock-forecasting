@@ -11,4 +11,14 @@ class DataNames:
     dataloaders = 'dataloaders'
     raw = 'raw'
     proc = 'proc'
+    tensors = 'tensors'
+    x = 'x'
+    y = 'y'
+    evaluation = 'evaluation'
 
+class ModelStructure: 
+    report = 'report'
+    perf = 'model_performance'
+    predictions = 'predictions' 
+    normalized = 'normalized'
+    not_normalized = 'not_normalized'

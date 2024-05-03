@@ -393,3 +393,8 @@ if __name__=='__main__':
                             end=pred_end_date,
                             freq='D').map(lambda x: x if x.isoweekday() in range(1, 6) else np.nan).dropna(), S[i, :])
         
+    @classmethod
+    def load_from_previous_output(cls, save_dir, model_name):
+        print('hi')
+        super().load_from_previous_output(save_dir, model_name)
+        ...

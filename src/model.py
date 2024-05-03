@@ -1,6 +1,7 @@
 from lstm_logger import logger as logging
 from plotting import plot_all_x_y_combinations, plot_multiple_dfs
 from project_globals import DataNames as DN
+from project_globals import DataNames as MS
 
 from os import path, makedirs
 import pickle
@@ -437,9 +438,13 @@ class Model():
         """Writes the output data to csvs
         """        
         # Write the train and model data to csv 
-        report_dir = path.join(self.save_dir, 'report')
-        if not path.exists(report_dir):
-            makedirs(report_dir)
+        report_dir = path.join(self.save_dir, MS.report)
+        perf_dir = path.join(report_dir, MS.performance)
+        pred_dir = path.join(report_dir, MS.predictions)
+        norm_dir = path.join(pred_dir, MS.normalized)
+        not_norm_dir = path.join(pred_dir, MS.not_normalized)
+
+        [makedirs (d) for d in [report_dir, perf_dir, pred_dir, norm_dir, not_norm_dir] if not path.exists(d)]
         logging.info(f'Writing report to {report_dir}')
 
 
@@ -469,4 +474,5 @@ class Model():
 
     @classmethod
     def load_from_previous_output(cls, save_dir, model_name):
+        print('hi')
         ...

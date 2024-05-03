@@ -326,7 +326,10 @@ class LSTM(TimeSeriesModel):
         if 'num_sims' not in self.model_hyperparameters:
             logging.info('No num_sims specified in model hyperparameters, using default of 1')
             self.model_hyperparameters['num_sims'] = 2
-
+    
+    @classmethod
+    def load_from_previous_output(cls, save_dir, model_name):
+        super().load_from_previous_output(save_dir, model_name)
 
         # Merge the train data fit with the train data 
         # # TODO (replace w/ model hyperparameters)
