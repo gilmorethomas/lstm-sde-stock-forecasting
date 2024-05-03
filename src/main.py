@@ -4,32 +4,9 @@ from lstm_logger import logger as logging
 from lstm_logger import logger
 from os import path, getcwd
 import os
-from analysis import AnalysisManager# The main driver for the lstm-sde-stock-forecasting project.
+from analysis_manager import AnalysisManager # The main driver for the lstm-sde-stock-forecasting project.
 from model_parameters import create_models_dict
 from utils import timer_decorator
-# This study explores the integration of stochastic modeling and 
-# advanced machine learning techniques, focusing specifically on 
-# recurrent neural networks (RNNs) to forecast stock prices. 
-# This will use a combination of models, including 
-# (1) Geometric Brownian Motion
-# (2) Long Short-Term Memory (LSTM) (subclass of RNN) 
-# (3) LSTM model using stochastic differential equations (SDEs)
-
-# We aim to compare performance using metrics such as R-CWCE, RMSE, R2, and BIC.  
-# This project performs univariate, stochastic, time-dependent modeling principles and 
-# evaluates performance of regressors across variable-length time horizons. 
-# The study conducts experiments using a dataset comprised of 10 stocks within the technology 
-# industry from 2009 to 2024, evaluating performance over 5-day, 1-month, 6-month, 1-year, and 5-year periods. 
-# This data is to be read from multiple CSVs 
-
-# Make an analysis class for each stock This class contains the dataset and the models
-# This analysis should have descriptive analytics and predictive analytics functionality.
-
-# Create analysis class with models, and dataset
-# Create a class for each stock
-
-#TODO current problem: 
-#https://stackoverflow.com/questions/72556150/there-appear-to-be-1-leaked-semaphore-objects-to-clean-up-at-shutdown
 
 def preprocessing_callback(df):
     # There are likely certain things that we don't want to include in the dataset...
@@ -77,7 +54,7 @@ if __name__ == "__main__":
     # INFO will print out a ton of stuff, but is useful for debugging
     # Set the logger 
     #Options are DEBUG, INFO, WARNING, ERROR, and CRITICAL. These are increasing order and will change what gets printed out
-    logging.setLevel("DEBUG")
+    logging.setLevel("INFO")
     # Create an analysis object for each stock
     # Create a list of stock names
     # stock_names = ["AAPL", "AMD", "AMZN", "EA", "GOOG", "INTC", "MSFT", "NFLX", "NVDA"]
@@ -104,14 +81,17 @@ if __name__ == "__main__":
         y_vars_to_plot=None, 
         save_png=False,
         save_html=True,
-        plotting = {'x_vars': 'Date', 'y_vars': None}, foo='bar', overwrite_out_dir=False)
+        plotting = {'x_vars': 'Date', 'y_vars': None}, 
+        overwrite_out_dir=False,
+        load_previous_results=False # Load previous results, rather than refitting a model
+        )
     analysis.set_preprocessing_callback(preprocessing_callback)
     # Add the analysis objects to the analysis manager 
     analysis.add_analysis_objs(analysis_dict=stock_df_dict, x_vars=['Date', 'Days_since_start'], y_vars=['Close'])
     
     analysis.preprocess_datasets()
     #analysis.validate_datasets()
-    models_dict = create_models_dict(gbm=False, lstm=False, lstm_sde=True)
+    models_dict = create_models_dict(gbm=True, lstm=True, lstm_sde=True)
     analysis.set_models_for_analysis_objs(models_dict=models_dict)
     analysis.run_analysis(run_descriptive=False, run_predictive=True)
     # Print the stock names

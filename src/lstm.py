@@ -1,9 +1,10 @@
 from lstm_logger import logger as logging
+from project_globals import DataNames as DN
 import numpy as np
 import pandas as pd
 from sklearn.metrics import mean_squared_error
 import math
-from model import Model
+ 
 from tensorflow.keras.layers import LSTM as keras_LSTM
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense
@@ -61,16 +62,16 @@ class LSTM(TimeSeriesModel):
         # Train the model using the test train split
         self._set_hyperparameter_defaults()
         for column in self.x_vars:
-            if self.data_dict['normalized']['train_data'][column].dtype == int: 
+            if self.data_dict[DN.normalized][DN.train_data][column].dtype == int: 
                 # check for gaps in the data
-                if not all(np.diff(self.data_dict['normalized']['train_data'][column]) == 1):
+                if not all(np.diff(self.data_dict[DN.normalized][DN.train_data][column]) == 1):
                     logging.error(f"Column {column} has gaps in the data")
                     return
         
         # make a deep copy of data dict
         data_dict = copy.deepcopy(self.data_dict)
-        train_data_scaled = data_dict['normalized']['train_data'].copy(deep=True)
-        train_data = data_dict['not_normalized']['train_data'].copy(deep=True)
+        train_data_scaled = data_dict[DN.normalized][DN.train_data].copy(deep=True)
+        train_data = data_dict[DN.not_normalized][DN.train_data].copy(deep=True)
         # Scale the data
         for y_var in self.y_vars:
             fit_data_one_var = self._fit_one_y_var(self.data_dict, y_var)
@@ -101,36 +102,36 @@ class LSTM(TimeSeriesModel):
         # Call the create dataset function for each entry in the data_dict
         parallelize_args = []
         x_y_data_dict = {}
-        data_dict_not_norm = data_dict['not_normalized']
-        data_dict = data_dict['normalized']
+        data_dict_not_norm = data_dict[DN.not_normalized]
+        data_dict = data_dict[DN.normalized]
         # Need to create the x and y data for each entry in the data_dict
-        # For test and evaluation data, we have to bring in data from preceeding time steps, using the time_steps parameter and data_dict['normalized']['all_data']
+        # For test and evaluation data, we have to bring in data from preceeding time steps, using the time_steps parameter and data_dict[DN.normalized][DN.all_data]
 
-        x_y_data_dict['train_data'] = self._create_dataset(data=np.array(data_dict['train_data'][y_var]).reshape(-1, 1),
+        x_y_data_dict[DN.train_data] = self._create_dataset(data=np.array(data_dict[DN.train_data][y_var]).reshape(-1, 1),
             time_steps=self.model_hyperparameters['time_steps'])
         
         
-        test_data_input = data_dict['test_data'][self.x_vars + [y_var]]
-        train_data_to_prepend = data_dict['train_data'].iloc[-self.model_hyperparameters['time_steps']:][self.x_vars + [y_var]]
+        test_data_input = data_dict[DN.test_data][self.x_vars + [y_var]]
+        train_data_to_prepend = data_dict[DN.train_data].iloc[-self.model_hyperparameters['time_steps']:][self.x_vars + [y_var]]
         # Must have a full window of train data
         assert train_data_to_prepend.shape[0] == self.model_hyperparameters['time_steps'], "Train data to prepend is not the correct size"
-        # Append the previous time steps to the test data using the time_steps parameter and data_dict['all_data']
+        # Append the previous time steps to the test data using the time_steps parameter and data_dict[DN.all_data]
         test_data_input = pd.concat([train_data_to_prepend, test_data_input]).sort_values(by='Date')[y_var]
-        x_y_data_dict['test_data'] = self._create_dataset(data=np.array(test_data_input).reshape(-1, 1),
+        x_y_data_dict[DN.test_data] = self._create_dataset(data=np.array(test_data_input).reshape(-1, 1),
             time_steps=self.model_hyperparameters['time_steps'])
         # Iterate over the evaluation data and create the x 
         x_y_data_dict.update({eval_filter: {} for eval_filter in self.evaluation_data_names})
         for eval_filter in self.evaluation_data_names: 
             eval_data_input = data_dict[eval_filter][self.x_vars + [y_var]]
-            test_data_to_prepend = data_dict['test_data'].iloc[-self.model_hyperparameters['time_steps']:][self.x_vars + [y_var]]
+            test_data_to_prepend = data_dict[DN.test_data].iloc[-self.model_hyperparameters['time_steps']:][self.x_vars + [y_var]]
             # If train data is smaller than the time steps, we need to prepend the remaining time steps with the train data
             if len(test_data_to_prepend) < self.model_hyperparameters['time_steps']:
                 steps_to_prepend = self.model_hyperparameters['time_steps'] - len(test_data_to_prepend)
                 logging.warning(f"Train data is smaller than the time steps = {self.model_hyperparameters['time_steps']}, prepending with train data for {steps_to_prepend} steps")
-                train_data_to_prepend = data_dict['train_data'].iloc[-steps_to_prepend:][self.x_vars + [y_var]]
+                train_data_to_prepend = data_dict[DN.train_data].iloc[-steps_to_prepend:][self.x_vars + [y_var]]
                 test_data_to_prepend = pd.concat([train_data_to_prepend, test_data_to_prepend])
             eval_data_input = pd.concat([test_data_to_prepend, eval_data_input]).sort_values(by='Date')[y_var]
-            # Append the previous time steps to the test data using the time_steps parameter and data_dictnormalizedscaled']['all_data']
+            # Append the previous time steps to the test data using the time_steps parameter and data_dict[DN.normalized][DN.all_data]
             x_y_data_dict[eval_filter] = self._create_dataset(data=np.array(eval_data_input).reshape(-1, 1),
                 time_steps=self.model_hyperparameters['time_steps'])
             
@@ -150,7 +151,7 @@ class LSTM(TimeSeriesModel):
         # Execute all the models in parallel.. TODO.. we cannot return the model if we parallelize
         out_data = parallelize(self._gen_and_predict_for_seed, parallelize_args, run_parallel=False)    
 
-        y_var_data = self._bould_output_data(out_data, self.data_dict['normalized'], self.data_dict['not_normalized'], y_var)
+        y_var_data = self._bould_output_data(out_data, copy.deepcopy(self.data_dict[DN.normalized]), copy.deepcopy(self.data_dict[DN.not_normalized]), y_var)
         
         # TODO get rid of the temp removal of the filters 
         self.test_split_filter = tmp_test_split_filter
@@ -180,22 +181,22 @@ class LSTM(TimeSeriesModel):
         # Build the output data
         for seed_num, model, train_data_fit_one_seed in out_data:
             # Pandas concatatenate the data into the
-            data_dict['test_data'].loc[:, f'{y_var}_{self.model_name}_{seed_num}'] = train_data_fit_one_seed['test_predict']
-            data_dict_not_norm['test_data'].loc[:, f'{y_var}_{self.model_name}_{seed_num}'] = self.scaler.inverse_transform(train_data_fit_one_seed['test_predict'])
-            data_dict['train_data'].loc[:, y_var + f'_{self.model_name}_{seed_num}'] = np.concatenate([nan_array, train_data_fit_one_seed['train_predict']])
-            data_dict_not_norm['train_data'].loc[:, y_var + f'_{self.model_name}_{seed_num}'] = self.scaler.inverse_transform(np.concatenate([nan_array, train_data_fit_one_seed['train_predict']]))
+            data_dict[DN.test_data].loc[:, f'{y_var}_{seed_num}'] = train_data_fit_one_seed['test_predict']
+            data_dict_not_norm[DN.test_data].loc[:, f'{y_var}_{seed_num}'] = self.scaler.inverse_transform(train_data_fit_one_seed['test_predict'])
+            data_dict[DN.train_data].loc[:, y_var + f'_{seed_num}'] = np.concatenate([nan_array, train_data_fit_one_seed['train_predict']])
+            data_dict_not_norm[DN.train_data].loc[:, y_var + f'_{seed_num}'] = self.scaler.inverse_transform(np.concatenate([nan_array, train_data_fit_one_seed['train_predict']]))
             # drop nans to account for windows for rollback data
-            data_dict['train_data'].dropna(inplace=True)
-            data_dict_not_norm['train_data'].dropna(inplace=True) 
+            data_dict[DN.train_data].dropna(inplace=True)
+            data_dict_not_norm[DN.train_data].dropna(inplace=True) 
             [data_dict_not_norm[eval_data].dropna(inplace=True) for eval_data in self.evaluation_data_names]
 
             for eval_filter in self.evaluation_data_names:
-                data_dict[eval_filter].loc[: ,y_var + f'_{self.model_name}_{seed_num}'] = train_data_fit_one_seed[eval_filter]
-                data_dict_not_norm[eval_filter].loc[: ,y_var + f'_{self.model_name}_{seed_num}'] = self.scaler.inverse_transform(train_data_fit_one_seed[eval_filter])
+                data_dict[eval_filter].loc[: ,y_var + f'_{seed_num}'] = train_data_fit_one_seed[eval_filter]
+                data_dict_not_norm[eval_filter].loc[: ,y_var + f'_{seed_num}'] = self.scaler.inverse_transform(train_data_fit_one_seed[eval_filter])
             self.model_objs.append(model)
 
 
-        return {'normalized' : data_dict, 'not_normalized': data_dict_not_norm}
+        return {DN.normalized : data_dict, DN.not_normalized: data_dict_not_norm}
     
     def _gen_and_predict_for_seed(self, seed_num, x_y_data_dict, model_hyperparameters):
         """Generates and predicts the model for a given seed
@@ -210,21 +211,21 @@ class LSTM(TimeSeriesModel):
             _type_: _description_
         """        
         #seed = self.seed.random()
-        model = self._generate_model_for_seed(x_y_data_dict['train_data'][0], x_y_data_dict['train_data'][1], model_hyperparameters)
+        model = self._generate_model_for_seed(x_y_data_dict[DN.train_data][0], x_y_data_dict[DN.train_data][1], model_hyperparameters)
         #model.compile()
         # TODO when we turn this to a parallel function and try to return the model, we get a pkl error
         # Is there a way to write this model to a file and then read it back in outside of the parallel function?
-        model.fit(x_y_data_dict['train_data'][0], # x_train
-            x_y_data_dict['train_data'][1], # y_train
-            validation_data=(x_y_data_dict['test_data'][0], x_y_data_dict['test_data'][1]),
+        model.fit(x_y_data_dict[DN.train_data][0], # x_train
+            x_y_data_dict[DN.train_data][1], # y_train
+            validation_data=(x_y_data_dict[DN.test_data][0], x_y_data_dict[DN.test_data][1]),
             epochs=model_hyperparameters['epochs'], 
             batch_size=model_hyperparameters['batch_size'], 
             verbose=model_hyperparameters['verbose'])
         # Now predict performance
         logging.info('Predicting performance for train, test, and evaluation data')
         predictions = {}
-        predictions['train_predict'] = model.predict(x_y_data_dict['train_data'][0]) 
-        predictions['test_predict'] = model.predict(x_y_data_dict['test_data'][0])
+        predictions['train_predict'] = model.predict(x_y_data_dict[DN.train_data][0]) 
+        predictions['test_predict'] = model.predict(x_y_data_dict[DN.test_data][0])
         for eval_filter in self.evaluation_data_names:
             predictions[eval_filter] = model.predict(x_y_data_dict[eval_filter][0])
         logging.info('Done predicting performance for train, test, and evaluation data')
@@ -325,57 +326,9 @@ class LSTM(TimeSeriesModel):
         if 'num_sims' not in self.model_hyperparameters:
             logging.info('No num_sims specified in model hyperparameters, using default of 1')
             self.model_hyperparameters['num_sims'] = 2
-
-
-        # Merge the train data fit with the train data 
-        # # TODO (replace w/ model hyperparameters)
-        # learning_rate = 0.001
-        # beta_1 = 0.9
-        # beta_2 = 0.999
-        # epsilon = 0.0001F
-        # decay = 0.0
-        # adam_opt = Adam(learning_rate = learning_rate)
-        #                # beta_1=beta_1,
-        #                 #beta_2=beta_2,
-        #                 #epsilon=epsilon,
-        #                 #decay=decay,
-        #                 #amsgrad=False)
-        # #self.model.compile(optimizer='adam', loss='mse', metrics=['accuracy'])
-        # self.model.compile(optimizer=adam_opt, loss='mse', metrics=['accuracy'])
-
-        # #self.model.compile(loss='mean_squared_error')
-        
-        # y_train = self.train_data[vars_to_use].to_numpy()
-        
-        # self.model.test = self.model.fit(y_train)
-
-#if __name__ == "__main__":
     
-    # tf.keras.layers.LSTM(
-    #     units,
-    #     activation='tanh',
-    #     recurrent_activation='sigmoid',
-    #     use_bias=True,
-    #     kernel_initializer='glorot_uniform',
-    #     recurrent_initializer='orthogonal',
-    #     bias_initializer='zeros',
-    #     unit_forget_bias=True,
-    #     kernel_regularizer=None,
-    #     recurrent_regularizer=None,
-    #     bias_regularizer=None,
-    #     activity_regularizer=None,
-    #     kernel_constraint=None,
-    #     recurrent_constraint=None,
-    #     bias_constraint=None,
-    #     dropout=0.0,
-    #     recurrent_dropout=0.0,
-    #     seed=None,
-    #     return_sequences=False,
-    #     return_state=False,Dense
-    #     go_backwards=False,
-    #     stateful=False,
-    #     unroll=False,
-    #     use_cudnn='auto',
-    #     **kwargs
-    # )
-    
+    @classmethod
+    def load_from_previous_output(cls, class_params):# , save_dir, model_name):
+        instance = super().load_from_previous_output(class_params)
+        return instance
+        # Any custom stuff needed here

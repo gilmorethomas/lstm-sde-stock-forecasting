@@ -1,150 +1,26 @@
-from lstm_logger import logger as logging
-from os import path, makedirs
-# import plotting module 
-from plotting import plot_all_x_y_combinations
-# import tensorflow as tf
-import re
 import os
-from lstm import LSTM 
-from geometricbrownianmotion import GeometricBrownianMotion
-from lstm_sde import LSTMSDE_to_train as LSTMSDE
+from os import path, makedirs
+import re
+import copy 
+
+import pandas as pd
 from numpy.random import RandomState
 import tensorflow as tf
 import torch
-class AnalysisManager(): 
-    # Create an analysis manager whose job is to manage the analysis objects
-    # It should store a list of analysis objects and call the methods of the analysis objects
-    # It should also take a raw directory and an output directory
-    # Raw directory is where the raw data is stored
-    # Output directory is where the output data is stored
-    def __init__(self, 
-        raw_dir, 
-        output_dir,
-        master_seed = 0, 
-        save_png = True, 
-        save_html=True, 
-        overwrite_out_dir=True,
-        load_previous_results=False,
-        **kwargs): 
-        """
-        Creates the analysis maanger 
-        Args:
-            raw_dir (string, path-like): _description_
-            output_dir (string, path-like)): _description_
-        """
-        self.analysis_objects_dict = {}
-        self.raw_dir = raw_dir
-        # Create a directory called at output_dir/output 
-        self.load_pervious_results = load_previous_results
-        self.output_dir = self._override_output_dir(output_dir, overwrite_out_dir=overwrite_out_dir)
-        self._random_state_mgr = RandomState(master_seed)
-        self.master_seed = master_seed
-        tf.random.set_seed(master_seed)
-        torch.manual_seed(master_seed)
-        self.save_png = save_png
-        self.save_html = save_html
-    def _override_output_dir(self, output_dir, overwrite_out_dir=True, load_previous_results=False):
-        outdir = path.join(output_dir, 'output_v0')
-        if (path.exists(outdir) and overwrite_out_dir) or (path.exists(outdir) and load_previous_results):
-            # If the output directory exists, roll the output directory to output_v{version_number}, 
-            # where version number is the next available version number
 
-            # Get the version number
-            version_number = 0
-            for f in os.listdir(output_dir):
-                if re.match(r'output_v\d+', f):
-                    version_number += 1
-            # Create the new output directory and override outdir
-            outdir = path.join(output_dir, f'output_v{version_number}')
-        logging.debug(f"Creating output directory {outdir}")
-        if not path.exists(outdir):
-            makedirs(outdir)
+from lstm_logger import logger as logging
+from project_globals import DataNames as DN
+from project_globals import ModelTypes as MT
+from project_globals import ModelStructure as MS
 
-        return outdir
-
-    def set_preprocessing_callback(self, preprocessing_callback):
-        """ 
-        Sets a preprocessing callback to preprocess data 
-
-        Args:
-            preprocessing_callback (function handle): function handle for preprocessing
-        """        
-        self.preprocessing_callback = preprocessing_callback
-        # set the preprocessing callback for the analysis objects
-
-    
-    def add_analysis_objs(self, analysis_dict, x_vars, y_vars): 
-        # add a dictionary of analysis objects, with key being the name of the analysis object
-        # and the value being the dataset
-        for dataset_name, dataset_df in analysis_dict.items(): 
-            logging.info(f"Creating analysis object for {dataset_name}")
-            analysis = Analysis(dataset_name, 
-                dataset_df, 
-                x_vars, 
-                y_vars, 
-                path.join(self.output_dir, dataset_name), 
-                preprocessing_callback=self.preprocessing_callback,
-                seed=self._random_state_mgr,
-                save_html=self.save_html,
-                save_png=self.save_png
-            )
-            self.analysis_objects_dict[dataset_name] = analysis
-    
-    def preprocess_datasets(self):
-        """
-        Preprocesses datasets for each analysis object
-        """        
-        # preprocess the datasets for each analysis object
-        logging.info("Preprocessing datasets")
-        for analysis_name, analysis_obj in self.analysis_objects_dict.items(): 
-            analysis_obj.preprocess_dataset()
-            
-    
-    def get_analysis_objs(self):
-        """Gets the analysis objects belonging to the analysis manager
-
-        Returns:
-            dict : analysis objects, with key being the name of the analysis object and the value being the analaysis object 
-        """
-        return self.analysis_objects_dict
-        
-    def run_analysis(self, run_descriptive=True, run_predictive=True):
-        """Runs analysis 
-
-        Args:
-            run_descriptive (bool, optional): Whether or not to run descriptive anlaysis. Defaults to True.
-            run_predictive (bool, optional): Whether or not to run predictive analysis. Defaults to True.
-        """        
-        # run analysis on each object
-        for analysis_name, analysis_obj in self.analysis_objects_dict.items(): 
-            logging.info(f"Running analysis for {analysis_name}")
-            analysis_obj.run_analysis(run_descriptive, run_predictive)
-        # Run cross-model analysis 
-        #self.run_cross_model_analysis()
-    def run_cross_model_analysis(self):
-        # Run cross model analysis. this should ultimately 
-        # 1.) create plots for the different model types to look at the differences between them
-        # 2.) create summary statistics for the different model types to look at the differences between them, simmilar to the model.py report method
-
-        raise NotImplementedError("This method is not implemented yet")
-    
-    def set_models_for_analysis_objs(self, models_dict, analysis_objs_to_use=None): 
-        # set models for each analysis object
-        # if analysis_objs_to_use is None, set models for all analysis objects,
-        # otherwise, set models for the analysis objects in the list
-        if analysis_objs_to_use is None: 
-            analysis_objs_to_use = self.analysis_objects_dict
-        for a_obj in analysis_objs_to_use.values():
-            a_obj._set_models(models_dict)
-
-
-    def _run_all_in_one_plot(self):
-        # run an all-in-one plot with all the datasets
-        raise NotImplementedError("This method is not implemented yet")
+from plotting import plot_all_x_y_combinations, plot_multiple_y_cols, finalize_plot
+from model import Model
+from lstm import LSTM 
+from geometricbrownianmotion import GeometricBrownianMotion
+from lstm_sde import LSTMSDE_to_train as LSTMSDE
             
 class Analysis(): 
-    def __init__(self, dataset_name, dataset_df, x_vars, y_vars, output_directory, seed, preprocessing_callback=None, save_html=True, save_png=True):
-         
+    def __init__(self, dataset_name, dataset_df, x_vars, y_vars, output_directory, seed, preprocessing_callback=None, save_html=True, save_png=True, load_previous_results=False):
         self.dataset_name = dataset_name
         self._raw_dataset_df = dataset_df
         self.preprocessing_callback = preprocessing_callback
@@ -154,11 +30,19 @@ class Analysis():
         self.save_html = save_html
         self.save_png = save_png
         self._rand_state_mgr = seed
+        self.load_previous_results = load_previous_results
         if not(path.exists(output_directory)):
             logging.info(f"Creating output directory {output_directory}")
             makedirs(output_directory)
-        
+        if self.load_previous_results:
+            separator = "*" * 80
+            logging.warning(separator)
+            logging.warning("Loading models and datasets from previous results. If you have changed the hyperparameters or the dataset, you should set load_previous_results to False")
+            logging.warning(separator)
+            self.load_from_previous_output()
     def preprocess_dataset(self):
+        if self.load_previous_results: 
+            return
         # preprocess the dataset, using the preprocessing_callback if provided
         logging.info(f"Preprocessing dataset for {self.dataset_name} using {self.preprocessing_callback}")
         if self.preprocessing_callback is not None: 
@@ -172,17 +56,20 @@ class Analysis():
         if float64_cols is not None and len(float64_cols) > 0:
             logging.info(f"Converting columns {float64_cols} to float32")
             self.dataset_df[float64_cols] = self.dataset_df[float64_cols].astype('float32')
-
+        self.dataset_df.to_csv(path.join(self.output_directory, f'{DN.all_data}.csv'))
         # Normalize data using minmax scaling
         # self.dataset_df = (self.dataset_df - self.dataset_df.min()) / (self.dataset_df.max() - self.dataset_df.min())
 
 
-    def run_analysis(self, run_descriptive=True, run_predictive=True): 
+    def run_analysis(self, run_descriptive=True, run_predictive=True, run_cross_model=True): 
+
         logging.info(f"Running analysis for {self.dataset_name}")
         if run_descriptive: 
             self.run_descriptive()
         if run_predictive: 
             self.run_predictive()
+        if run_cross_model: 
+            self.run_cross_model()
     def run_descriptive(self):
         # run descriptive analytics
         self.report_stats() 
@@ -231,65 +118,270 @@ class Analysis():
         # For each model in the models dict, call the requisite model class's test method
         # For each model in the models dict, call the requisite model class's predict method
         # For each model in the models dict, call the requisite model class's save method
+
         for model_type, all_models_for_type in self.models_dict.items():
             if model_type.lower() == 'lstm' and all_models_for_type is not None and len(all_models_for_type) > 0: 
                 logging.info("Creating LSTM models")
                 for model_name, model_dict in all_models_for_type.items():
                     logging.info(f"Creating LSTM model {model_name}")
-                    model = LSTM(data=self.dataset_df, 
-                        model_hyperparameters=model_dict['library_hyperparameters'],
-                        units = model_dict['units'],
-                        save_dir=path.join(self.output_directory, 'lstm', model_name), 
-                        model_name=model_name,
-                        x_vars=self.x_vars,
-                        y_vars=self.y_vars,
-                        seed=self._rand_state_mgr,
-                        test_split_filter=model_dict['test_split_filter'],
-                        train_split_filter=model_dict['train_split_filter'],
-                        evaluation_filters=model_dict['evaluation_filters'], 
-                        save_png=self.save_png,
-                        save_html=self.save_html)
-                    self._call_model_funcs(model)
+                    model_args = {'data' : self.dataset_df,
+                            'model_hyperparameters' : model_dict['library_hyperparameters'],
+                            'save_dir' : path.join(self.output_directory, 'LSTM', model_name),
+                            'units' :  model_dict['units'],
+                            'model_name' : model_name,
+                            'x_vars' : self.x_vars,
+                            'y_vars' : self.y_vars,
+                            'seed' : self._rand_state_mgr,
+                            'test_split_filter' : model_dict['test_split_filter'],
+                            'train_split_filter' : model_dict['train_split_filter'],
+                            'evaluation_filters' : model_dict['evaluation_filters'], 
+                            'save_png' : self.save_png,
+                            'save_html' : self.save_html
+                        }
+                    if not self.load_previous_results: 
+                        model = LSTM(**model_args)
+                        self._call_model_funcs(model)
+                    else: 
+                        model = LSTM.load_from_previous_output(model_args)
+                    # Save the model off in the models_dict
+                    self.models_dict[model_type][model_name]['model_object'] = model
+
             elif model_type.lower() == 'gbm':
                 logging.info("Creating GBM models")
                 for model_name, model_dict in all_models_for_type.items():
                     # Create a GBM model
                     logging.info(f"Creating GBM model {model_name}")
-                    model = GeometricBrownianMotion(data=self.dataset_df,
-                        model_hyperparameters=model_dict['model_hyperparameters'], 
-                        save_dir=path.join(self.output_directory, 'gbm', model_name), 
-                        model_name=model_name,
-                        x_vars=self.x_vars,
-                        y_vars=self.y_vars,
-                        seed=self._rand_state_mgr,
-                        test_split_filter=model_dict['test_split_filter'],
-                        train_split_filter=model_dict['train_split_filter'],
-                        evaluation_filters=model_dict['evaluation_filters'], 
-                        save_png=self.save_png,
-                        save_html=self.save_html)
-                    self._call_model_funcs(model)
-            elif model_type.lower() == 'lstm_sde':
+                    model_args = {'data' : self.dataset_df, 
+                            'model_hyperparameters' : model_dict[DN.params], 
+                            'save_dir' : path.join(self.output_directory, 'LSTMSDE', model_name), 
+                            'model_name' : model_name,
+                            'x_vars' : self.x_vars,
+                            'y_vars' : self.y_vars,
+                            'seed' : self._rand_state_mgr,
+                            'test_split_filter' : model_dict['test_split_filter'],
+                            'train_split_filter' : model_dict['train_split_filter'],
+                            'evaluation_filters' : model_dict['evaluation_filters'], 
+                            'save_png' : self.save_png,
+                            'save_html' : self.save_html
+                        }
+                    if not self.load_previous_results: 
+                        model = GeometricBrownianMotion(**model_args) 
+                        self._call_model_funcs(model)
+                    else: 
+                        model = GeometricBrownianMotion.load_from_previous_output(model_args)
+                    # Save the model off in the models_dict
+                    self.models_dict[model_type][model_name]['model_object'] = model
+
+            elif model_type.lower() == 'lstmsde':
+                
                 logging.info("Creating LSTM SDE models")
                 for model_name, model_dict in all_models_for_type.items():
                     # Create a LSTM SDE model
                     logging.info(f"Creating LSTM SDE model {model_name}")
-                    model = LSTMSDE(data=self.dataset_df,
-                        model_hyperparameters=model_dict['model_hyperparameters'], 
-                        save_dir=path.join(self.output_directory, 'lstm_sde', model_name), 
-                        model_name=model_name,
-                        x_vars=self.x_vars,
-                        y_vars=self.y_vars,
-                        seed=self._rand_state_mgr,
-                        test_split_filter=model_dict['test_split_filter'],
-                        train_split_filter=model_dict['train_split_filter'],
-                        evaluation_filters=model_dict['evaluation_filters'], 
-                        save_png=self.save_png,
-                        save_html=self.save_html)
-                    self._call_model_funcs(model)
+                    model_args = {'data' : self.dataset_df, 
+                            'model_hyperparameters' : model_dict[DN.params], 
+                            'save_dir' : path.join(self.output_directory, 'LSTMSDE', model_name), 
+                            'model_name' : model_name,
+                            'x_vars' : self.x_vars,
+                            'y_vars' : self.y_vars,
+                            'seed' : self._rand_state_mgr,
+                            'test_split_filter' : model_dict['test_split_filter'],
+                            'train_split_filter' : model_dict['train_split_filter'],
+                            'evaluation_filters' : model_dict['evaluation_filters'], 
+                            'save_png' : self.save_png,
+                            'save_html' : self.save_html
+                        }
                     
+                    if not self.load_previous_results: 
+                        model = LSTMSDE(**model_args) 
+                        self._call_model_funcs(model)
+                    else: 
+                        model = LSTMSDE.load_from_previous_output(model_args)
+                    # Save the model off in the models_dict
+                    self.models_dict[model_type][model_name]['model_object'] = model
+
             else:   
                 logging.error(f"Model {model_type} not implemented yet")
+    def run_cross_model(self):
+        # Create the cross-model directory 
+        cross_model_dir = path.join(self.output_directory, 'cross_model')
+        # Make all the submodel types. Pull only the types that we've defined from the modeule. This ignores special variables like __name__ and __doc__
+        model_types = [v for k, v in vars(MT).items() if isinstance(v, str) and not v.startswith('__') and not callable(v) and v is not None and not v.startswith('<') and not k.startswith('__')]
+        
+        # Create the cross model directory
+        #model_dict = Model._get_empty_datadict_struct()
+        #models_dict = {model_type: copy.deepcopy(model_dict) for model_type in model_types}
+
+
+        model_type_dirs = [path.join(cross_model_dir, mt) for mt in model_types + ['all']]
+        [makedirs(mt) for mt in model_type_dirs if not path.exists(mt)]
+        # For each model type, combine the results of the models in that type and write a report
+        for model_type_dir, model_type in zip(model_type_dirs, model_types):
+            # Get the models for the model type
+            model_type_models = self.models_dict.get(model_type, {})
+            if model_type_models is None or len(model_type_models) == 0:
+                logging.info(f"No models for model type {model_type}")
+                continue
+            # Get the model objects for the model type
+            model_name_with_model_obj  = {model_name: model_dict['model_object'] for model_name, model_dict in model_type_models.items()}
+            #model_name_with_hyperparams  = {model_name: model_dict['model_hyperparameters'] for model_name, model_dict in model_type_models.items()}
+                                       
+            if model_name_with_model_obj is None or len(model_name_with_model_obj) == 0:
+                logging.info(f"No model objects for model type {model_type}")
+                continue
+            # Combine the results of the models in that type
+            # For now, just plot the results
+            self._plot_cross_model_results(model_name_with_model_obj, model_type_dir, model_type)
+            # Write a report
+            self._write_cross_model_report(model_name_with_model_obj, model_type_dir, model_type)
+        # Combine the results of all models and write a report
+        all_models = {}
+        for model_type, model_type_dict in self.models_dict.items():
+            all_models.update((model_name, model_dict['model_object']) for model_name, model_dict in model_type_dict.items())
+        self._plot_cross_model_results(all_models, path.join(cross_model_dir, 'all'), 'all')
+        self._write_cross_model_report(all_models, path.join(cross_model_dir, 'all'), 'all')
     
+    def _plot_cross_model_results(self, model_dict, output_dir, model_type):
+        """Plots the results multiple models, which are contained in the models dictionary
+        Creates one plot for each datatype in the data dictionary.
+        TODO (break this out for multiple y vars and multiple x vars)
+
+        Args:
+            model_dict (_type_): _description_
+            output_dir (_type_): _description_
+            model_type (_type_): _description_
+        """        
+        # Assume that the first model objects types in data dict match all the others 
+        first_model = list(model_dict.keys())[0]
+        # For the plots for all models, only pull the first processed responses, since that will be a lot of traces otherwise
+        proc_responses = list(model_dict[first_model].model_responses['proc']) if model_type != 'all' else [model_dict[first_model].model_responses['proc'][0]]
+        eval_names = list(model_dict[first_model].evaluation_data_names)
+        x_vars = list(model_dict[first_model].x_vars)
+        y_vars = list(model_dict[first_model].y_vars)
+        all_vars = x_vars + y_vars + proc_responses 
+        data_dict_struct = model_dict[first_model].get_empty_datadict_struct()
+
+        data_keys = list(data_dict_struct[DN.not_normalized].keys())
+        figs = {dk : None for dk in data_keys} 
+
+        for k in data_dict_struct[DN.not_normalized]:
+            # Create a dictionary to store the plots for each datatype
+            if k == 'all_data':
+                continue
+            for modelkey, modelvals in model_dict.items():
+                this_data = modelvals.data_dict[DN.not_normalized][k]
+                if this_data is None or this_data.empty:
+                    logging.warning(f"No data for {k} in model {modelkey}")
+                    continue
+                if k not in figs:
+                    figs[k] = None
+
+                # Only plot the actual response onse
+                y_cols_to_plot = y_vars + proc_responses if modelkey == first_model else proc_responses
+                # First pass figs[k] is going to be null, but plot can handle that
+                # Plot the actual response data for the first model only 
+                if modelkey == first_model:
+                    figs[k] = plot_multiple_y_cols(
+                        df=this_data, 
+                        x_col=x_vars[0], 
+                        y_cols=y_vars,
+                        trace_name_to_prepend='', 
+                        plot_type='line', 
+                        title=None,
+                        fig=figs[k],
+                        output_dir=None, 
+                        output_name=None, 
+                        save_png=False, 
+                        save_html=False,
+                        finalize=False)      
+
+                figs[k] = plot_multiple_y_cols(
+                    df=this_data, 
+                    x_col=x_vars[0], 
+                    #y_cols=y_cols_to_plot,
+                    y_cols = proc_responses,
+                    trace_name_to_prepend=modelkey, 
+                    plot_type='line', 
+                    title=None,
+                    fig=figs[k],
+                    output_dir=None, 
+                    output_name=None, 
+                    save_png=False, 
+                    save_html=False,
+                    finalize=False)
+    
+                
+        # Finalize the plot for each plot in figs 
+        for k, fig in figs.items():
+            if fig is None: 
+                logging.warning(f'No figure for {k}')
+                continue
+            finalize_plot(fig,
+                          title = f'{k} for all {model_type} models',
+                          output_dir=output_dir,
+                          filename=k,
+                          save_png=self.save_png,
+                          save_html=self.save_html)
+
+
+            # Now plot the data 
+
+
+
+
+    def _write_cross_model_report(self, model_dict, output_dir, model_type):
+        # Assume that the first model objects types in data dict match all the others 
+        first_model = list(model_dict.keys())[0]
+        # For the plots for all models, only pull the first processed responses, since that will be a lot of traces otherwise
+        if model_type == 'all':
+            first_model_type = first_model
+            first_model_obj = model_dict[first_model]
+            proc_responses = first_model_obj.model_responses['proc'][0]
+            if not isinstance(proc_responses, list):
+                proc_responses = [proc_responses]
+            #eval_names = list(model_dict[first_model_type][first_model].evaluation_data_names)
+            eval_names = first_model_obj.evaluation_data_names
+
+        else: 
+            first_model_obj = model_dict[first_model]
+            proc_responses = first_model_obj.model_responses['proc'] 
+            if not isinstance(proc_responses, list):
+                proc_responses = [proc_responses]
+            eval_names = model_dict[first_model].evaluation_data_names
+        
+        # Create a dictionary to store the performance metrics for each model
+
+        performance_struct = {k: None for k in first_model_obj.model_performance.keys()}
+        x_vars = list(first_model_obj.x_vars)
+        y_vars = list(first_model_obj.y_vars)
+        all_vars = x_vars + y_vars + proc_responses 
+
+        for k in performance_struct:
+            # Create a dictionary to store the plots for each datatype
+            if k == 'all_data':
+                continue
+            for modelkey, modelvals in model_dict.items():
+                this_data = modelvals.model_performance[k]
+                # Make a multiindex dataframe where the first index is the modelname and the second is the existing index 
+                this_data['model_name'] = modelkey
+
+                this_data.set_index(['model_name'], append=True, inplace=True)
+                if performance_struct[k] is None:
+                    performance_struct[k] = this_data
+                else: 
+                    performance_struct[k] = pd.concat([performance_struct[k], this_data])
+
+        # Finalize the plot for each plot in figs 
+        for k, df in performance_struct.items():
+            if df is None: 
+                logging.warning(f'No performance for {k}')
+                continue
+            output_file = path.join(output_dir, MS.perf, f'{k}.csv')
+            if not path.exists(path.join(output_dir, MS.perf)):
+                makedirs(path.join(output_dir, MS.perf))
+            logging.info(f"Writing performance metrics for {k} to {output_file}")
+            df.to_csv(output_file)
+
     def _call_model_funcs(self, model):
         """Helper function to call all model functions
         Args:
@@ -308,7 +400,17 @@ class Analysis():
 
     def _set_models(self, models_dict):
         # set models for the analysis object
+        # For all models in the models_dict, create a model object and store it in the models_dict
+
+        # Assuming model_dict is a dictionary where the first level keys are the model types, and the second level keys are the model names
+
+        for model_type, model_type_dict in models_dict.items():
+            for model_name in model_type_dict: 
+                models_dict[model_type][model_name]['model_object'] = None
+
         self.models_dict = models_dict
+
+
 
     def _get_models(self):
         # get models for the analysis object
@@ -321,7 +423,15 @@ class Analysis():
                 x_cols=None, 
                 y_cols=None, 
                 plot_type=plot_type, 
-                output_dir=self.output_dir, 
+                output_dir=self.output_directory, 
                 output_name='Stock Market Data', 
                 save_png=self.save_png, 
                 save_html=self.save_html)
+            
+
+    def load_from_previous_output(self):
+        """Loads datasets and models from previous output
+
+        Args:
+        """        
+        self.dataset_df = pd.read_csv(path.join(self.output_directory, DN.all_data + '.csv'))

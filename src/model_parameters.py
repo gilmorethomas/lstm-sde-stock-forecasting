@@ -1,5 +1,6 @@
 from dateutil.relativedelta import relativedelta
 from pandas import to_datetime
+from project_globals import DataNames as DN 
 def create_test_train_split_params(
     start_date_train='2010-01-01', # FOR TESTING 
     start_date_test='2020-10-31', # FOR TESTING 
@@ -47,18 +48,28 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
     models_dict = {}
     if gbm: 
         models_dict["GBM"] = {
-            'gbm_calculated_10_days' : {
-                'model_hyperparameters': {
+            'gbm_calculated_1_day' : {
+                DN.params: {
                     'calculate_mu' : True, 
                     'calculate_sigma': True,
-                    'window_size': None,
+                    'window_size': 1,
+                    'dt' : 1, # day
+                    'num_sims' : 5
+                },
+            },
+
+            'gbm_calculated_10_days' : {
+                DN.params: {
+                    'calculate_mu' : True, 
+                    'calculate_sigma': True,
+                    'window_size': 10,
                     'dt' : 1, # day
                     'num_sims' : 5
                 },
             },
 
             'gbm_calculated_20_days' : {
-                'model_hyperparameters': {
+                DN.params: {
                     'calculate_mu' : True, 
                     'calculate_sigma': True,
                     'window_size': 20,
@@ -66,9 +77,8 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
                     'num_sims' : 5
                 },
             },
-
             'gbm_calculated_50_days' : {
-                'model_hyperparameters': {
+                DN.params: {
                     'calculate_mu' : True, 
                     'calculate_sigma': True,
                     'window_size': 50,
@@ -76,8 +86,53 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
                     'num_sims' : 5
                 },
             }  ,
+            'gbm_calculated_500_days' : {
+                DN.params: {
+                    'calculate_mu' : True, 
+                    'calculate_sigma': True,
+                    'window_size': 500,
+                    'dt' : 1,
+                    'num_sims' : 5
+                },
+            }  ,
+            'gbm_calculated_1000_days' : {
+                DN.params: {
+                    'calculate_mu' : True, 
+                    'calculate_sigma': True,
+                    'window_size': 1000,
+                    'dt' : 1,
+                    'num_sims' : 5
+                },
+            }  ,
+            'gbm_calculated_2000_days' : {
+                DN.params: {
+                    'calculate_mu' : True, 
+                    'calculate_sigma': True,
+                    'window_size': 2000,
+                    'dt' : 1,
+                    'num_sims' : 5
+                },
+            }  ,
+            'gbm_calculated_3000_days' : {
+                DN.params: {
+                    'calculate_mu' : True, 
+                    'calculate_sigma': True,
+                    'window_size': 3000,
+                    'dt' : 1,
+                    'num_sims' : 5
+                },
+            }  ,
+            'gbm_calculated_all_days' : {
+                DN.params: {
+                    'calculate_mu' : True, 
+                    'calculate_sigma': True,
+                    'window_size': None,
+                    'dt' : 1,
+                    'num_sims' : 5
+                },
+            }  ,
             # 'GBM Steady Large Increase' : {
-            #     'model_hyperparameters': {
+            #     DN.params: {
             #         'calculate_mu' : False, 
             #         'calculate_sigma': False, 
             #         'mu': 0.0001, 
@@ -86,7 +141,7 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
             #     },
             # },
             # 'GBM Unsteady 1' : {
-            #     'model_hyperparameters': {
+            #     DN.params: {
             #         'calculate_mu' : False, 
             #         'calculate_sigma': False, 
             #         'mu': 0.1, 
@@ -95,7 +150,7 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
             #     },
             # },
             # 'GBM Unsteady 2' : {
-            #     'model_hyperparameters': {
+            #     DN.params: {
             #         'calculate_mu' : False, 
             #         'calculate_sigma': False, 
             #         'mu': 0.1, 
@@ -105,11 +160,11 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
             # }
         }
     if lstm_sde:
-        models_dict["LSTM_SDE"] = {
+        models_dict["LSTMSDE"] = {
             'lstm_sde_1' : {
-                'model_hyperparameters': {
+                DN.params: {
                     'num_sims' : 1,
-                    'num_epochs' : 10, 
+                    'num_epochs' : 2, 
                     'time_steps' : 10,
                     'batch_size' : 32,
                     'shuffle' : True,
@@ -118,6 +173,63 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
                     'd_input' : 1, # dimension of the input. TODO increasing this breaks things... 
                     'd_hidden' : 1, # dimensionality of the hidden state of the LSTM. Determines how much information the network can store about the past 
                     'N' : 50, # number of latent variable paths to simulate )
+                    't_sde' : 1, # time step for SDE
+                    'n_sde' : 100, # number of latent variables in each latent variable path (i.e num days to simulate for each path)
+                    'learning_rate' : 10e-2, # learning rate for the optimizer
+                    'loss' : 'mean_squared_error',
+                    'optimizer' : 'adam' # which optimizer to use. Options are 'adam' and 'sgd'
+                },
+            },
+            'lstm_sde_2' : {
+                DN.params: {
+                    'num_sims' : 1,
+                    'num_epochs' : 5, 
+                    'time_steps' : 10,
+                    'batch_size' : 32,
+                    'shuffle' : True,
+                    'd_lstm' : 64, # dimension of the LSTM network
+                    'd_lat' : 1, # dimension of the latent variable
+                    'd_input' : 1, # dimension of the input. TODO increasing this breaks things... 
+                    'd_hidden' : 1, # dimensionality of the hidden state of the LSTM. Determines how much information the network can store about the past 
+                    'N' : 50, # number of latent variable paths to simulate )
+                    't_sde' : 1, # time step for SDE
+                    'n_sde' : 100, # number of latent variables in each latent variable path (i.e num days to simulate for each path)
+                    'learning_rate' : 10e-2, # learning rate for the optimizer
+                    'loss' : 'mean_squared_error',
+                    'optimizer' : 'adam' # which optimizer to use. Options are 'adam' and 'sgd'
+                },
+            },
+            'lstm_sde_3' : {
+                DN.params: {
+                    'num_sims' : 1,
+                    'num_epochs' : 5, 
+                    'time_steps' : 10,
+                    'batch_size' : 32,
+                    'shuffle' : True,
+                    'd_lstm' : 64, # dimension of the LSTM network
+                    'd_lat' : 1, # dimension of the latent variable
+                    'd_input' : 1, # dimension of the input. TODO increasing this breaks things... 
+                    'd_hidden' : 1, # dimensionality of the hidden state of the LSTM. Determines how much information the network can store about the past 
+                    'N' : 50, # number of latent variable paths to simulate )
+                    't_sde' : 1, # time step for SDE
+                    'n_sde' : 100, # number of latent variables in each latent variable path (i.e num days to simulate for each path)
+                    'learning_rate' : 10e-3, # learning rate for the optimizer
+                    'loss' : 'mean_squared_error',
+                    'optimizer' : 'adam' # which optimizer to use. Options are 'adam' and 'sgd'
+                },
+            },
+            'lstm_sde_4' : {
+                DN.params: {
+                    'num_sims' : 1,
+                    'num_epochs' : 2, 
+                    'time_steps' : 30,
+                    'batch_size' : 32,
+                    'shuffle' : True,
+                    'd_lstm' : 64, # dimension of the LSTM network
+                    'd_lat' : 1, # dimension of the latent variable
+                    'd_input' : 1, # dimension of the input. TODO increasing this breaks things... 
+                    'd_hidden' : 1, # dimensionality of the hidden state of the LSTM. Determines how much information the network can store about the past 
+                    'N' : 100, # number of latent variable paths to simulate )
                     't_sde' : 1, # time step for SDE
                     'n_sde' : 100, # number of latent variables in each latent variable path (i.e num days to simulate for each path)
                     'learning_rate' : 10e-2, # learning rate for the optimizer
