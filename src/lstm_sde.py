@@ -374,7 +374,7 @@ class LSTMSDE_to_train(TimeSeriesModel):
             losses_over_time.append(np.mean(epoch_losses))
         return losses_over_time
     def save(self):
-        logging.info('LSTM SDE save not implemented')
+        logging.info('LSTM SDE save not implemented')   
     def _eval(self, eval_type, model, loss_fn, x_input, y_target):
         """Tests the model
 
@@ -387,40 +387,44 @@ class LSTMSDE_to_train(TimeSeriesModel):
             _type_: _description_
         """    
         #model.eval()
-        #if eval_type == 'evaluation': 
-        #    y_pred_train, rmse = predict_future_steps()
-        if 1 == 1: # else: 
+        def predict_future_steps(model, initial_input_data, y_target, loss_fn):
+            """Predicts n future steps using an autoregressive approach.
+
+            Args:
+                model: The trained model.
+                initial_input_data: The input data to start the predictions.
+                n_steps: The number of future steps to predict.
+
+            Returns:
+                A list of predictions.
+            """
+            input_data = initial_input_data.clone() 
+            predictions = []
+            n_steps = len(y_target)
+
+            for _ in range(n_steps):
+                # Use the model to predict the next step
+                prediction = model.predict(input_data)
+                predictions.append(prediction)
+
+                # Append the prediction to the input data and remove the oldest value
+                input_data = np.append(input_data[1:], prediction)
+                
+            with torch.no_grad():
+                rmse = np.sqrt(loss_fn(prediction, y_target))
+            
+            return predictions, rmse
+
+        if eval_type == 'evaluation': 
+            y_pred_train, rmse = predict_future_steps(model, x_input, y_target, loss_fn)
+        else: 
             with torch.no_grad():
                 y_pred_train = model(x_input)
                 y_pred_train = y_pred_train.squeeze()  # remove extra dimensions from outputs
                 rmse = np.sqrt(loss_fn(y_pred_train, y_target))
-        #print("Epoch %d: train RMSE %.4f, test RMSE %.4f" % (epoch, train_rmse, test_rmse))
-        logging.error("Need to fix eval to pull in predict_future_steps")
         return y_pred_train, rmse
     
-    def predict_future_steps(model, initial_input_data, n_steps):
-        """Predicts n future steps using an autoregressive approach.
 
-        Args:
-            model: The trained model.
-            initial_input_data: The input data to start the predictions.
-            n_steps: The number of future steps to predict.
-
-        Returns:
-            A list of predictions.
-        """
-        input_data = initial_input_data.copy()
-        predictions = []
-
-        for _ in range(n_steps):
-            # Use the model to predict the next step
-            prediction = model.predict(input_data)
-            predictions.append(prediction)
-
-            # Append the prediction to the input data and remove the oldest value
-            input_data = np.append(input_data[1:], prediction)
-
-        return predictions
     #@profile
     def _prefit_functions(self): 
         """_summary_
