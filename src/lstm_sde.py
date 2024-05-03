@@ -554,8 +554,12 @@ class LSTMSDE_to_train(TimeSeriesModel):
         
         super().plot()
 
-    def load_from_previous_output(cls, save_dir, model_name):
-        super().load_from_previous_output(save_dir, model_name)
+    @classmethod
+    def load_from_previous_output(cls, class_params):# , save_dir, model_name):
+        instance = super().load_from_previous_output(class_params)
+        return instance
+        # Any custom stuff needed here
+    
 
 if __name__ == "__main__":
     # Set manual seed for reproducibility

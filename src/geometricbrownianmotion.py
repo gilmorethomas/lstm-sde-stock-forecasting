@@ -394,7 +394,6 @@ if __name__=='__main__':
                             freq='D').map(lambda x: x if x.isoweekday() in range(1, 6) else np.nan).dropna(), S[i, :])
         
     @classmethod
-    def load_from_previous_output(cls, save_dir, model_name):
-        print('hi')
-        super().load_from_previous_output(save_dir, model_name)
-        ...
+    def load_from_previous_output(cls, class_params):# , save_dir, model_name):
+        instance = super().load_from_previous_output(class_params)
+        # Any custom stuff needed here

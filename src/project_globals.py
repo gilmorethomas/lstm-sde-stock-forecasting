@@ -36,3 +36,4 @@ class ModelStructure:
     predictions = 'predictions' 
     normalized = 'normalized'
     not_normalized = 'not_normalized'
+    data = 'data'

@@ -162,22 +162,25 @@ class Analysis():
                 for model_name, model_dict in all_models_for_type.items():
                     # Create a LSTM SDE model
                     logging.info(f"Creating LSTM SDE model {model_name}")
+                    model_args = {'data' : self.dataset_df, 
+                            'model_hyperparameters' : model_dict[DN.params], 
+                            'save_dir' : path.join(self.output_directory, 'lstm_sde', model_name), 
+                            'model_name' : model_name,
+                            'x_vars' : self.x_vars,
+                            'y_vars' : self.y_vars,
+                            'seed' : self._rand_state_mgr,
+                            'test_split_filter' : model_dict['test_split_filter'],
+                            'train_split_filter' : model_dict['train_split_filter'],
+                            'evaluation_filters' : model_dict['evaluation_filters'], 
+                            'save_png' : self.save_png,
+                            'save_html' : self.save_html
+                        }
+                    
                     if not self.load_previous_results: 
-                        model = LSTMSDE(data=self.dataset_df,
-                            model_hyperparameters=model_dict[DN.params], 
-                            save_dir=path.join(self.output_directory, 'lstm_sde', model_name), 
-                            model_name=model_name,
-                            x_vars=self.x_vars,
-                            y_vars=self.y_vars,
-                            seed=self._rand_state_mgr,
-                            test_split_filter=model_dict['test_split_filter'],
-                            train_split_filter=model_dict['train_split_filter'],
-                            evaluation_filters=model_dict['evaluation_filters'], 
-                            save_png=self.save_png,
-                            save_html=self.save_html)
+                        model = LSTMSDE(**model_args) 
                         self._call_model_funcs(model)
                     else: 
-                        model = LSTMSDE.load_from_previous_output(LSTMSDE, path.join(self.output_directory, 'lstm_sde', model_name), model_name)
+                        model = LSTMSDE.load_from_previous_output(model_args)
                     # Save the model off in the models_dict
                     self.models_dict[model_type][model_name]['model_object'] = model
 

@@ -328,58 +328,6 @@ class LSTM(TimeSeriesModel):
             self.model_hyperparameters['num_sims'] = 2
     
     @classmethod
-    def load_from_previous_output(cls, save_dir, model_name):
-        super().load_from_previous_output(save_dir, model_name)
-
-        # Merge the train data fit with the train data 
-        # # TODO (replace w/ model hyperparameters)
-        # learning_rate = 0.001
-        # beta_1 = 0.9
-        # beta_2 = 0.999
-        # epsilon = 0.0001F
-        # decay = 0.0
-        # adam_opt = Adam(learning_rate = learning_rate)
-        #                # beta_1=beta_1,
-        #                 #beta_2=beta_2,
-        #                 #epsilon=epsilon,
-        #                 #decay=decay,
-        #                 #amsgrad=False)
-        # #self.model.compile(optimizer='adam', loss='mse', metrics=['accuracy'])
-        # self.model.compile(optimizer=adam_opt, loss='mse', metrics=['accuracy'])
-
-        # #self.model.compile(loss='mean_squared_error')
-        
-        # y_train = self.train_data[vars_to_use].to_numpy()
-        
-        # self.model.test = self.model.fit(y_train)
-
-#if __name__ == "__main__":
-    
-    # tf.keras.layers.LSTM(
-    #     units,
-    #     activation='tanh',
-    #     recurrent_activation='sigmoid',
-    #     use_bias=True,
-    #     kernel_initializer='glorot_uniform',
-    #     recurrent_initializer='orthogonal',
-    #     bias_initializer='zeros',
-    #     unit_forget_bias=True,
-    #     kernel_regularizer=None,
-    #     recurrent_regularizer=None,
-    #     bias_regularizer=None,
-    #     activity_regularizer=None,
-    #     kernel_constraint=None,
-    #     recurrent_constraint=None,
-    #     bias_constraint=None,
-    #     dropout=0.0,
-    #     recurrent_dropout=0.0,
-    #     seed=None,
-    #     return_sequences=False,
-    #     return_state=False,Dense
-    #     go_backwards=False,
-    #     stateful=False,
-    #     unroll=False,
-    #     use_cudnn='auto',
-    #     **kwargs
-    # )
-    
+    def load_from_previous_output(cls, class_params):# , save_dir, model_name):
+        instance = super().load_from_previous_output(class_params)
+        # Any custom stuff needed here

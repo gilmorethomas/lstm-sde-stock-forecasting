@@ -2,7 +2,7 @@ from lstm_logger import logger as logging
 from plotting import plot_all_x_y_combinations, plot_multiple_dfs
 from project_globals import DataNames as DN
 from project_globals import ModelStructure as MS
-
+import glob 
 from os import path, makedirs
 import pickle
 import pandas as pd 
@@ -448,22 +448,30 @@ class Model():
         """Writes the output data to csvs
         """        
         # Write the train and model data to csv 
-        data_dir = path.join(self.report_dir, 'data')
+        data_dir = path.join(self.report_dir, MS.data)
         norm_data_dir = path.join(data_dir, DN.normalized)
         not_norm_data_dir = path.join(data_dir, DN.not_normalized)
         perf_dir = path.join(self.report_dir, MS.perf)
         pred_dir = path.join(self.report_dir, MS.predictions)
-        norm_dir = path.join(pred_dir, MS.normalized)
-        not_norm_dir = path.join(pred_dir, MS.not_normalized)
+        norm_pred_dir = path.join(pred_dir, MS.normalized)
+        not_norm_pred_dir = path.join(pred_dir, MS.not_normalized)
         params_dir = path.join(self.report_dir, DN.params)
-        [makedirs (d) for d in [self.report_dir, data_dir, norm_data_dir, not_norm_data_dir, perf_dir, pred_dir, norm_dir, not_norm_dir, params_dir] if not path.exists(d)]
+        [makedirs (d) for d in [self.report_dir, data_dir, norm_data_dir, not_norm_data_dir, perf_dir, pred_dir, norm_pred_dir, not_norm_pred_dir, params_dir] if not path.exists(d)]
         logging.info(f'Writing report to {self.report_dir}')
 
 
         for k, v in self.data_dict[DN.normalized].items():
-            pd.DataFrame(v).to_csv(path.join(data_dir, DN.normalized, f'{k}.csv'))
+            # Write the data, with the model data to the predicted directory
+            pd.DataFrame(v).to_csv(path.join(norm_pred_dir, f'{k}.csv'))
+            # Write just the x, y vars to the data directory
+            pd.DataFrame(v[self.x_vars + self.y_vars]).to_csv(path.join(norm_data_dir, f'{k}.csv'))
+
         for k, v in self.data_dict[DN.not_normalized].items():
-            pd.DataFrame(v).to_csv(path.join(data_dir, f'{k}.csv'))
+            # Write the data, with the model data to the predicted directory
+            pd.DataFrame(v).to_csv(path.join(norm_pred_dir, f'{k}.csv'))
+            # Write just the x, y vars to the data directory
+            pd.DataFrame(v[self.x_vars + self.y_vars]).to_csv(path.join(norm_data_dir, f'{k}.csv'))
+
 
         # Write the model performance to csv
         for k, v in self.model_performance.items():
@@ -482,6 +490,18 @@ class Model():
         raise NotImplementedError("This should be implemented by the child class")
 
     @classmethod
-    def load_from_previous_output(cls, save_dir, model_name):
-        print('hi')
-        ...
+    def load_from_previous_output(cls, class_params):# , save_dir, model_name):
+        instance = cls(**class_params)
+        instance.report_dir
+        # Load the data from the performance directory 
+        performance_files = glob.glob(path.join(instance.report_dir, MS.perf, '*.csv'), recursive = True)
+        data_files = glob.glob(path.join(instance.report_dir, MS.data, '*.csv'), recursive = True)
+        prediction_files = glob.glob(path.join(instance.report_dir, MS.predictions, '*.csv'), recursive = True)
+
+        for file in performance_files:
+            instance.model_performance[path.basename(file).split('_')[0]] = pd.read_csv(file, index_col=0)
+        for file in data_files:
+            instance.data_dict[path.basename(file).split('_')[0]] = pd.read_csv(file, index_col=0)
+        for file in prediction_files:
+            instance.model_objs.append(pd.read_csv(file, index_col=0))
+        return instance 
