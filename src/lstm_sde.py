@@ -388,31 +388,24 @@ class LSTMSDE_to_train(TimeSeriesModel):
         """    
         #model.eval()
         def predict_future_steps(model, initial_input_data, y_target, loss_fn):
-            """Predicts n future steps using an autoregressive approach.
-
-            Args:
-                model: The trained model.
-                initial_input_data: The input data to start the predictions.
-                n_steps: The number of future steps to predict.
-
-            Returns:
-                A list of predictions.
-            """
-            input_data = initial_input_data.clone() 
+            input_data = initial_input_data.clone()
             predictions = []
-            n_steps = len(y_target)
-
+            
+            n_steps = len(initial_input_data)
+        
             for _ in range(n_steps):
                 # Use the model to predict the next step
-                prediction = model.predict(input_data)
+                prediction = model(input_data)  # Add batch dimension
                 predictions.append(prediction)
-
-                # Append the prediction to the input data and remove the oldest value
-                input_data = np.append(input_data[1:], prediction)
                 
+                # input_data is a 3d while prediction is a 2d
+        
+                # Append the prediction to the input data and remove the oldest value
+                input_data = torch.cat((input_data[:, 1:, :], prediction), dim=1)
+        
             with torch.no_grad():
-                rmse = np.sqrt(loss_fn(prediction, y_target))
-            
+                rmse = np.sqrt(loss_fn(predictions, y_target))  # Use the last prediction for RMSE calculation
+        
             return predictions, rmse
 
         if eval_type == 'evaluation': 
