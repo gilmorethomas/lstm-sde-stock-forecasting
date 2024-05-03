@@ -28,8 +28,6 @@ class DataNames:
     #    }
     # }
 
-
-
 class ModelStructure: 
     report = 'report'
     perf = 'model_performance'
@@ -37,3 +35,8 @@ class ModelStructure:
     normalized = 'normalized'
     not_normalized = 'not_normalized'
     data = 'data'
+
+class ModelTypes: 
+    lstm = 'LSTM'
+    lstm_sde = 'LSTMSDE'
+    gbm = 'GBM'

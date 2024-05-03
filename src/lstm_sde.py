@@ -328,16 +328,16 @@ class LSTMSDE_to_train(TimeSeriesModel):
             # Need to reshape the numpy array to have shape (n, 1)
             train_data_to_insert = this_data[DN.train_data].numpy().reshape(-1, 1)
             test_data_to_insert = np.concatenate([nan_array, this_data[DN.test_data].numpy().reshape(-1, 1)])
-            data_dict[DN.train_data][f'{y_var}_{self.model_name}_{seed_num}'] = train_data_to_insert
-            data_dict[DN.test_data][f'{y_var}_{self.model_name}_{seed_num}'] = test_data_to_insert
-            data_dict_not_norm[DN.test_data][f'{y_var}_{self.model_name}_{seed_num}'] = self.scaler.inverse_transform(test_data_to_insert)
-            data_dict_not_norm[DN.train_data][f'{y_var}_{self.model_name}_{seed_num}'] = self.scaler.inverse_transform(train_data_to_insert)
+            data_dict[DN.train_data][f'{y_var}_{seed_num}'] = train_data_to_insert
+            data_dict[DN.test_data][f'{y_var}_{seed_num}'] = test_data_to_insert
+            data_dict_not_norm[DN.test_data][f'{y_var}_{seed_num}'] = self.scaler.inverse_transform(test_data_to_insert)
+            data_dict_not_norm[DN.train_data][f'{y_var}_{seed_num}'] = self.scaler.inverse_transform(train_data_to_insert)
             # drop nans to account for windows for rollback data
 
             for eval_filter in self.evaluation_data_names:
                 eval_data_to_insert = this_data[eval_filter].numpy().reshape(-1, 1)
-                data_dict[eval_filter][f'{y_var}_{self.model_name}_{seed_num}'] = eval_data_to_insert
-                data_dict_not_norm[eval_filter][f'{y_var}_{self.model_name}_{seed_num}'] = self.scaler.inverse_transform(eval_data_to_insert)
+                data_dict[eval_filter][f'{y_var}_{seed_num}'] = eval_data_to_insert
+                data_dict_not_norm[eval_filter][f'{y_var}_{seed_num}'] = self.scaler.inverse_transform(eval_data_to_insert)
         data_dict = drop_nans_from_data_dict(data_dict, self, self.fit)
         data_dict_not_norm = drop_nans_from_data_dict(data_dict_not_norm, self, self.fit)
         return {DN.normalized : data_dict, DN.not_normalized : data_dict_not_norm}
@@ -355,7 +355,6 @@ class LSTMSDE_to_train(TimeSeriesModel):
         losses_over_time = []
         mse_over_time = []
         for epoch in range(n_epochs):
-            logging.debug(f'Training for {epoch=}')
             model.train()
             epoch_losses = []
             for X_batch, y_batch in dataloader:

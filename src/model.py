@@ -118,7 +118,11 @@ class Model():
         self._print_train_end_message()
     def _build_model_response_dict(self):
         # Build model response raw list from y_vars with model name and number of sims appended
-        self.model_responses[DN.raw] = [f'{y_var}_{self.model_name}_{i}' for y_var in self.y_vars for i in range(self.model_hyperparameters['num_sims'])]
+        self.model_responses[DN.raw] = [f'{y_var}_{i}' for y_var in self.y_vars for i in range(self.model_hyperparameters['num_sims'])]
+        # Build model response proc list from y_vars
+        proc_suffixes = ['mean', 'min_mean_model', 'max_mean_model', 'min_max_mean_avg']
+        self.model_responses[DN.proc] = []
+        [self.model_responses[DN.proc].append(f'{y_var}_{suffix}') for y_var in self.y_vars for suffix in proc_suffixes]
     def _normalize_data_dict(self, data_dict, y_col):
         # Returns a normalized data dictionary, where data with columns in y_col are scaled
         # Unscale the data
@@ -245,11 +249,11 @@ class Model():
             processed_repsonses.append(f'{y_var}_max_mean_model')   # Add the model with the maximium mean
             processed_repsonses.append(f'{y_var}_min_max_mean_avg') # Add the average of the minimum and maximum mean
 
-            response_data[f'{y_var}_mean'] = response_data[[f'{y_var}_{self.model_name}_{i}' for i in range(self.model_hyperparameters['num_sims'])]].mean(axis=1)
-            response_data[f'{y_var}_median'] = response_data[[f'{y_var}_{self.model_name}_{i}' for i in range(self.model_hyperparameters['num_sims'])]].median(axis=1)
+            response_data[f'{y_var}_mean'] = response_data[[f'{y_var}_{i}' for i in range(self.model_hyperparameters['num_sims'])]].mean(axis=1)
+            response_data[f'{y_var}_median'] = response_data[[f'{y_var}_{i}' for i in range(self.model_hyperparameters['num_sims'])]].median(axis=1)
             # Calculate the model columns that have the minimum and maximum mean
-            min_mean_col = response_data[[f'{y_var}_{self.model_name}_{i}' for i in range(self.model_hyperparameters['num_sims'])]].mean().idxmin()
-            max_mean_col = response_data[[f'{y_var}_{self.model_name}_{i}' for i in range(self.model_hyperparameters['num_sims'])]].mean().idxmax()
+            min_mean_col = response_data[[f'{y_var}_{i}' for i in range(self.model_hyperparameters['num_sims'])]].mean().idxmin()
+            max_mean_col = response_data[[f'{y_var}_{i}' for i in range(self.model_hyperparameters['num_sims'])]].mean().idxmax()
             response_data[f'{y_var}_min_mean_model'] = response_data[min_mean_col]
             response_data[f'{y_var}_max_mean_model'] = response_data[max_mean_col]
             response_data[f'{y_var}_min_max_mean_avg'] = (response_data[f'{y_var}_min_mean_model'] + response_data[f'{y_var}_max_mean_model']) / 2
@@ -468,14 +472,14 @@ class Model():
 
         for k, v in self.data_dict[DN.not_normalized].items():
             # Write the data, with the model data to the predicted directory
-            pd.DataFrame(v).to_csv(path.join(norm_pred_dir, f'{k}.csv'))
+            pd.DataFrame(v).to_csv(path.join(not_norm_pred_dir, f'{k}.csv'))
             # Write just the x, y vars to the data directory
             pd.DataFrame(v[self.x_vars + self.y_vars]).to_csv(path.join(norm_data_dir, f'{k}.csv'))
 
 
         # Write the model performance to csv
         for k, v in self.model_performance.items():
-            v.to_csv(path.join(perf_dir, f'{k}_model_performance.csv'))
+            v.to_csv(path.join(perf_dir, f'{k}.csv'))
         # Write the model hyperparameters to csv
         try:
             pd.DataFrame(self.model_hyperparameters, index=[0]).to_csv(path.join(params_dir, f'{DN.params}.csv'))
@@ -495,13 +499,62 @@ class Model():
         instance.report_dir
         # Load the data from the performance directory 
         performance_files = glob.glob(path.join(instance.report_dir, MS.perf, '*.csv'), recursive = True)
-        data_files = glob.glob(path.join(instance.report_dir, MS.data, '*.csv'), recursive = True)
-        prediction_files = glob.glob(path.join(instance.report_dir, MS.predictions, '*.csv'), recursive = True)
+        data_files_norm = glob.glob(path.join(instance.report_dir, MS.data, DN.normalized, '*.csv'), recursive = True)
+        data_files_not_norm = glob.glob(path.join(instance.report_dir, MS.data, DN.not_normalized, '*.csv'), recursive = True)
 
+        prediction_files_norm = glob.glob(path.join(instance.report_dir, MS.predictions, DN.normalized, '*.csv'), recursive = True)
+        prediction_files_not_norm = glob.glob(path.join(instance.report_dir, MS.predictions, DN.not_normalized, '*.csv'), recursive = True)
+
+        # Build data dictionary structure
+        instance.data_dict = Model._get_empty_datadict_struct()
+
+        logging.warning('All data not read in yet. Any subclass functionality (like epoch vs loss) not implemented here')
+        # Model performance 
         for file in performance_files:
-            instance.model_performance[path.basename(file).split('_')[0]] = pd.read_csv(file, index_col=0)
-        for file in data_files:
-            instance.data_dict[path.basename(file).split('_')[0]] = pd.read_csv(file, index_col=0)
-        for file in prediction_files:
-            instance.model_objs.append(pd.read_csv(file, index_col=0))
+            k = path.basename(file).split('.')[0]
+            instance.model_performance[k] = pd.read_csv(file, index_col=0)
+        # Predictions are a superset of the data, so we don't need to read in the datafiles 
+        for file in prediction_files_norm:
+            k = path.basename(file).split('.')[0]
+            instance.data_dict[DN.normalized][k] = pd.read_csv(file, index_col=0)
+        for file in prediction_files_not_norm:
+            k = path.basename(file).split('.')[0]
+            instance.data_dict[DN.not_normalized][k] = pd.read_csv(file, index_col=0)
         return instance 
+    def get_empty_datadict_struct(self):
+        # Build data dictionary structure. Class method to include the evaluation data names
+        data_dict = {
+            DN.not_normalized : 
+            {
+                DN.all_data : None, 
+                DN.train_data: None, 
+                DN.test_data: None
+            },
+            DN.normalized : 
+            {
+                DN.all_data : None,
+                DN.train_data: None, 
+                DN.test_data: None, 
+            }
+        }
+        data_dict[DN.not_normalized].update({eval_name: None for eval_name in self.evaluation_data_names})
+        data_dict[DN.normalized].update({eval_name: None for eval_name in self.evaluation_data_names})
+        return data_dict
+    @classmethod
+    def _get_empty_datadict_struct(cls):
+                # Build data dictionary structure
+        data_dict = {
+            DN.not_normalized : 
+            {
+                DN.all_data : None, 
+                DN.train_data: None, 
+                DN.test_data: None
+            },
+            DN.normalized : 
+            {
+                DN.all_data : None,
+                DN.train_data: None, 
+                DN.test_data: None, 
+            }
+        }
+        return data_dict

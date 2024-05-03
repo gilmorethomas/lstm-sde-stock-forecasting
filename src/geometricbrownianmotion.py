@@ -199,7 +199,7 @@ class GeometricBrownianMotion(TimeSeriesModel):
 
             # Assign the simulated data to the train_data_fit dataframe, using multiple columns
             for i in range(num_sims):
-                train_data_fit[f'{col}_{self.model_name}_{i}'] = gbm_data[:,i]
+                train_data_fit[f'{col}_{i}'] = gbm_data[:,i]
 
         return train_data_fit
 
@@ -396,4 +396,5 @@ if __name__=='__main__':
     @classmethod
     def load_from_previous_output(cls, class_params):# , save_dir, model_name):
         instance = super().load_from_previous_output(class_params)
+        return instance
         # Any custom stuff needed here

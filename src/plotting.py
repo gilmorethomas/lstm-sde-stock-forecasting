@@ -5,6 +5,7 @@ import plotly.express as px
 import pandas as pd
 import numpy as np
 import os
+from os import path, makedirs
 from lstm_logger import logger as logging
 from itertools import product 
 pio.renderers.default='browser'
@@ -165,8 +166,53 @@ def plot(df, x_col, y_col, plot_type, trace_name, fig=None, color=None):
         logging.error(f"Plot type {plot_type} not implemented")
         return None
     return fig
-    
-def finalize_plot(fig, title, filename, output_dir, save_png=True, save_html=True):
+
+def plot_multiple_y_cols(df, x_col, y_cols, plot_type, output_dir, output_name, title, fig=None, trace_name_to_prepend = '', save_png=True, save_html=True, make_title_replacements=True, finalize=True):
+    """Plots a single x column against multiple y columns. This will plot all y columns on the same plot
+
+    Args:
+        df (pd.DataFrame): The DataFrame to plot
+        x_col (str): The x column to plot
+        y_cols (list): The y columns to plot
+        plot_type (str): The type of plot to make
+        output_dir (str): The output directory to save the plot
+        output_name (str): The output name of the plot
+        title (str): The title of the plot
+        fig (plotly.graph_objects.Figure, optional): The figure to add the plot to. Defaults to None. If you pass a figure, it will add the plot to the figure and return the figure.
+        trace_name_to_prepend (str, optional): The string to prepend to the trace name. Defaults to ''.
+        save_png (bool, optional): Whether or not to save png. Defaults to True.
+        save_html (bool, optional): Whether or not to save html. Defaults to True.
+        finalize (bool, optional): Whether or not to finalize (save) the plot. Defaults to True.
+    """    
+    if y_cols is None:
+        logging.debug("No y columns provided, using all columns") 
+        y_cols = df.columns
+
+    for y_col in y_cols:
+        if y_col not in df.columns:
+            logging.error(f"Column {y_col} not in DataFrame")
+            continue
+        output_file = f"{output_name}_{x_col}_vs_{y_col}"
+        if make_title_replacements:
+            trace_name = _make_title_replacements(f'{trace_name_to_prepend}_{y_col}')
+        else: 
+            trace_name = trace_name
+        fig = plot(df=df,
+            x_col=x_col, 
+            y_col=y_col, 
+            plot_type=plot_type,
+            trace_name = trace_name,
+            fig = fig)
+        if finalize:
+            finalize_plot(fig=fig, 
+                title=_make_title_replacements(title),
+                filename=f'{output_file}_{plot_type}', 
+                output_dir=output_dir, 
+                save_png=save_png, 
+                save_html=save_html)
+    return fig 
+
+def finalize_plot(fig, title, filename, output_dir, save_png=True, save_html=True, make_title_replacements=True):
     """Writes a plot to a png and html file
 
     Args:
@@ -187,15 +233,17 @@ def finalize_plot(fig, title, filename, output_dir, save_png=True, save_html=Tru
         template='presentation',  # Use dark theme
         hovermode='closest',  # Show hover information for the closest point
     )
-
-    if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
-    if save_html and not os.path.exists(os.path.join(output_dir, 'html')):
-            os.makedirs(os.path.join(output_dir, 'html'))
-    if save_png and not os.path.exists(os.path.join(output_dir, 'png')):
-            os.makedirs(os.path.join(output_dir, 'png'))
-    
+    html_dir = path.join(output_dir, 'html')
+    png_dir = path.join(output_dir, 'png')
+    if not path.exists(output_dir):
+            makedirs(output_dir)
+    if save_html and not path.exists(html_dir):
+            makedirs(html_dir)
+    if save_png and not path.exists(png_dir):
+            makedirs(png_dir)
+    if make_title_replacements: 
+        title = _make_title_replacements(title)
     if save_png:
-        fig.write_image(f"{output_dir}/png/{filename}.png")
+        fig.write_image(path.join(png_dir, f'{filename}.png'))
     if save_html: 
-        fig.write_html(f"{output_dir}/html/{filename}.html")
+        fig.write_html(path.join(html_dir, f'{filename}.html'))
