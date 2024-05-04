@@ -164,14 +164,14 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
             'lstm_sde_1' : {
                 DN.params: {
                     'num_sims' : 1,
-                    'num_epochs' : 2, 
+                    'num_epochs' : 50, 
                     'time_steps' : 10,
                     'batch_size' : 32,
                     'shuffle' : True,
                     'd_lstm' : 64, # dimension of the LSTM network
                     'd_lat' : 1, # dimension of the latent variable
                     'd_input' : 1, # dimension of the input. TODO increasing this breaks things... 
-                    'd_hidden' : 1, # dimensionality of the hidden state of the LSTM. Determines how much information the network can store about the past 
+                    'd_hidden' : 16, # dimensionality of the hidden state of the LSTM. Determines how much information the network can store about the past 
                     'N' : 50, # number of latent variable paths to simulate )
                     't_sde' : 1, # time step for SDE
                     'n_sde' : 100, # number of latent variables in each latent variable path (i.e num days to simulate for each path)
@@ -183,18 +183,18 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
             'lstm_sde_2' : {
                 DN.params: {
                     'num_sims' : 1,
-                    'num_epochs' : 5, 
+                    'num_epochs' : 1000, 
                     'time_steps' : 10,
                     'batch_size' : 32,
                     'shuffle' : True,
                     'd_lstm' : 64, # dimension of the LSTM network
                     'd_lat' : 1, # dimension of the latent variable
                     'd_input' : 1, # dimension of the input. TODO increasing this breaks things... 
-                    'd_hidden' : 1, # dimensionality of the hidden state of the LSTM. Determines how much information the network can store about the past 
+                    'd_hidden' : 16, # dimensionality of the hidden state of the LSTM. Determines how much information the network can store about the past 
                     'N' : 50, # number of latent variable paths to simulate )
                     't_sde' : 1, # time step for SDE
                     'n_sde' : 100, # number of latent variables in each latent variable path (i.e num days to simulate for each path)
-                    'learning_rate' : 10e-2, # learning rate for the optimizer
+                    'learning_rate' : 10e-3, # learning rate for the optimizer
                     'loss' : 'mean_squared_error',
                     'optimizer' : 'adam' # which optimizer to use. Options are 'adam' and 'sgd'
                 },
@@ -202,18 +202,18 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
             'lstm_sde_3' : {
                 DN.params: {
                     'num_sims' : 1,
-                    'num_epochs' : 5, 
+                    'num_epochs' : 1000, 
                     'time_steps' : 10,
                     'batch_size' : 32,
                     'shuffle' : True,
                     'd_lstm' : 64, # dimension of the LSTM network
                     'd_lat' : 1, # dimension of the latent variable
                     'd_input' : 1, # dimension of the input. TODO increasing this breaks things... 
-                    'd_hidden' : 1, # dimensionality of the hidden state of the LSTM. Determines how much information the network can store about the past 
+                    'd_hidden' : 16, # dimensionality of the hidden state of the LSTM. Determines how much information the network can store about the past 
                     'N' : 50, # number of latent variable paths to simulate )
                     't_sde' : 1, # time step for SDE
                     'n_sde' : 100, # number of latent variables in each latent variable path (i.e num days to simulate for each path)
-                    'learning_rate' : 10e-3, # learning rate for the optimizer
+                    'learning_rate' : 10e-4, # learning rate for the optimizer
                     'loss' : 'mean_squared_error',
                     'optimizer' : 'adam' # which optimizer to use. Options are 'adam' and 'sgd'
                 },
@@ -249,7 +249,10 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
                 'library_hyperparameters' : {
                     'activation' : 'relu',
                     'recurrent_activation' : 'sigmoid',
-                    'num_sims' : 1
+                    'num_sims' : 1,
+                    'num_layers': 10,
+                    'epochs': 1000,
+                    'hidden_nodes': 50
                 }
             },
         }
