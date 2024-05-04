@@ -357,6 +357,7 @@ class LSTMSDE_to_train(TimeSeriesModel):
         """    
         losses_over_time = []
         mse_over_time = []
+        timenow = pd.Timestamp.now()
         for epoch in range(n_epochs):
             model.train()
             epoch_losses = []
@@ -371,7 +372,8 @@ class LSTMSDE_to_train(TimeSeriesModel):
             epoch_loss = np.mean(epoch_losses)
             # mse_over_time.append() May ultimately want to pull this in. zsince our loss function is mse, it should be the same thing I think ?
             if (epoch + 1 ) % 10 == 0:
-                logging.info(f'Epoch {epoch+1}/{n_epochs}, Mean Loss: {np.mean(epoch_losses)}')
+                # Log the time difference and loss 
+                logging.info(f'Epoch {epoch + 1} of {n_epochs} completed in {pd.Timestamp.now() - timenow}. Loss: {epoch_loss}')
             losses_over_time.append(np.mean(epoch_losses))
         return losses_over_time
     def save(self):

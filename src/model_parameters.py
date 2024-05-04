@@ -224,7 +224,7 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
                     'recurrent_activation' : 'sigmoid',
                     'num_sims' : 1,
                     'num_layers': 10,
-                    'epochs': 1000,
+                    'epochs': 500,
                     'hidden_nodes': 50                }
             },
         }

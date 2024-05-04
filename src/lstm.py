@@ -211,7 +211,7 @@ class LSTM(TimeSeriesModel):
             _type_: _description_
         """        
         #seed = self.seed.random()
-        model = self._generate_model_for_seed(x_y_data_dict[DN.train_data][0], x_y_data_dict[DN.train_data][1], model_hyperparameters)
+        model = self._generate_model_for_seed(x_y_data_dict[DN.train_data][0], x_y_data_dict[DN.train_data][1], model_hyperparameters, autoreressive=False)
         #model.compile()
         # TODO when we turn this to a parallel function and try to return the model, we get a pkl error
         # Is there a way to write this model to a file and then read it back in outside of the parallel function?
@@ -227,10 +227,45 @@ class LSTM(TimeSeriesModel):
         predictions['train_predict'] = model.predict(x_y_data_dict[DN.train_data][0]) 
         predictions['test_predict'] = model.predict(x_y_data_dict[DN.test_data][0])
         for eval_filter in self.evaluation_data_names:
-            predictions[eval_filter] = model.predict(x_y_data_dict[eval_filter][0])
+            if autoregerssive:
+                predictions[eval_filter] = self.autoregressive_predict(
+                    model=model, 
+                    num_steps = x_y_data_dict[eval_filter][1].shape[0], 
+                    prev_input_data=x_y_data_dict[DN.test_data][0])
+            else: 
+                predictions[eval_filter] = model.predict(x_y_data_dict[eval_filter][0])
         logging.info('Done predicting performance for train, test, and evaluation data')
 
         return seed_num, model, predictions
+    def autoregressive_predict(self, model, prev_input_data, num_steps):
+        """Predicts the next num_steps of the data using an autoregressive model
+
+        Args:
+            x_data (_type_): _description_
+            num_steps (_type_): _description_
+
+        Returns:
+            _type_: _description_
+        """        
+        # Predict the next num_steps of the data using an autoregressive model
+        # This will be used for the evaluation data
+        # We will use the model to predict the next num_steps of the data
+        # We will then use the predicted data to predict the next num_steps of the data
+        # We will repeat this process num_steps times
+        # We will return the predicted data
+        
+            # Get the initial input data
+        input_data = prev_input_data[-self.model_hyperparameters['time_steps'], :, :].unsqueeze(0)
+        predictions = []
+
+        for i in range(num_steps):
+                # Use the model to predict the next step
+                prediction = model.predict(input_data)
+                predictions.append(prediction)
+
+                # Append the prediction to the input data and remove the oldest value
+                input_data = np.concatenate((input_data[:, 1:, :], prediction), axis=1)
+        predictions = np.array(predictions)
 
     def _generate_model_for_seed(self, x_train, y_train, model_hyperparameters):
         """Generates a model for a given seed
