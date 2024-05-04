@@ -1,5 +1,4 @@
 from lstm_logger import logger as logging
-from project_globals import TimeSeriesGlobals as TSGlobals
 from project_globals import DataNames as DN
 
 from timeseriesmodel import TimeSeriesModel
@@ -99,7 +98,7 @@ class GeometricBrownianMotion(TimeSeriesModel):
                     self.train_params['mu'][col] = np.mean(returns[-self.model_hyperparameters['window_size']:])
                     self.train_params['sigma'][col] = np.std(returns[-self.model_hyperparameters['window_size']:])
                     logging.info(f'Calculated mu={self.train_params["mu"][col]}, sigma={self.train_params["sigma"][col]} for {col}')
-                except TypeError as e:
+                except TypeError:
                     logging.error(f"Could not calculate mu and sigma for {col}")
 
         else:

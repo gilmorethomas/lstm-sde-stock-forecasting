@@ -161,7 +161,7 @@ class LSTMSDE_to_train(TimeSeriesModel):
                 for y_var, seed_num in y_var_seed_product]
     def _set_hyperparameter_defaults(self, model_params):
         if 'loss_fn' not in model_params:
-            logging.warning(f"No loss function specified. Defaulting to MSELoss")
+            logging.warning("No loss function specified. Defaulting to MSELoss")
             self.loss_fn = torch.nn.MSELoss()
         elif model_params['loss_fn'] == 'MSELoss':
             self.loss_fn = torch.nn.MSELoss()
@@ -224,7 +224,7 @@ class LSTMSDE_to_train(TimeSeriesModel):
         model_params = self.model_hyperparameters
 
         if 'optimizer' not in model_params:
-            logging.warning(f"No optimizer specified. Defaulting to Adam")
+            logging.warning("No optimizer specified. Defaulting to Adam")
             optimizer = torch.optim.Adam(model.parameters(), lr=model_params['learning_rate'])
             model_params['optimizer'] = ['adam']
         elif model_params['optimizer'].lower() == 'adam':
@@ -372,8 +372,12 @@ class LSTMSDE_to_train(TimeSeriesModel):
             epoch_loss = np.mean(epoch_losses)
             # mse_over_time.append() May ultimately want to pull this in. zsince our loss function is mse, it should be the same thing I think ?
             if (epoch + 1 ) % 10 == 0:
-                # Log the time difference and loss 
-                logging.info(f'Epoch {epoch + 1} of {n_epochs} completed in {pd.Timestamp.now() - timenow}. Loss: {epoch_loss}')
+                # Log the time difference and loss in minutes and seconds 
+                time_diff = pd.Timestamp.now() - timenow
+                time_diff_minutes = time_diff.seconds / 60
+                time_diff_seconds = time_diff.seconds % 60
+                logging.info(f"Epoch {epoch + 1} completed in {time_diff_minutes} m, {time_diff_seconds} s with loss {epoch_loss}")
+
             losses_over_time.append(np.mean(epoch_losses))
         return losses_over_time
     def save(self):

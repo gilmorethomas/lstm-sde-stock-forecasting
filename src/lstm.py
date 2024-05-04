@@ -2,16 +2,11 @@ from lstm_logger import logger as logging
 from project_globals import DataNames as DN
 import numpy as np
 import pandas as pd
-from sklearn.metrics import mean_squared_error
-import math
  
 from tensorflow.keras.layers import LSTM as keras_LSTM
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense
-from tensorflow.keras.layers import Input
-from tensorflow.keras.optimizers import Adam
 from timeseriesmodel import TimeSeriesModel
-from sklearn.preprocessing import MinMaxScaler
 from utils import parallelize
 import copy
 

@@ -1,12 +1,10 @@
 import numpy as np 
 import pandas as pd 
 from lstm_logger import logger as logging
-from lstm_logger import logger
-from os import path, getcwd
+from os import path
 import os
 from analysis_manager import AnalysisManager # The main driver for the lstm-sde-stock-forecasting project.
 from model_parameters import create_models_dict
-from utils import timer_decorator
 
 def preprocessing_callback(df):
     # There are likely certain things that we don't want to include in the dataset...
@@ -67,7 +65,7 @@ if __name__ == "__main__":
     for stock in stock_names:
         try: 
             stock_df_dict[stock] = pd.read_csv(path.join(raw_dir, stock, f'{stock}.csv'))
-        except FileNotFoundError as e:
+        except FileNotFoundError:
             print(f"File not found for {stock}")
             continue
 

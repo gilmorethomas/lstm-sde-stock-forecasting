@@ -7,10 +7,8 @@ from os import path, makedirs
 import pickle
 import pandas as pd 
 import numpy as np
-import copy
-from scaler import Scaler
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
-from sklearn.preprocessing import StandardScaler, MinMaxScaler
+from sklearn.preprocessing import MinMaxScaler
 
 
 class Model(): 
@@ -270,7 +268,7 @@ class Model():
         if data_type in [DN.train_data, DN.test_data] + self.evaluation_data_names:
             try:
                 all_data = {col: self.data_dict[norm][data_type][self.x_vars + [col]] for col in self.y_vars + self.model_responses[DN.proc] + self.model_responses[DN.raw]}
-            except KeyError as e:
+            except KeyError:
                 logging.error(f"Dataframe {data_type} does not exist in the data dictionary or does not have expected columns")
                 return
         else: 
