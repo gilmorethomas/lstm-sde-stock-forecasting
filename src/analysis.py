@@ -11,6 +11,7 @@ from plotting import plot_all_x_y_combinations, plot_multiple_y_cols, finalize_p
 from lstm import LSTM 
 from geometricbrownianmotion import GeometricBrownianMotion
 from lstm_sde import LSTMSDE_to_train as LSTMSDE
+from utils import timer_decorator, drop_nans_from_data_dict
             
 class Analysis(): 
     def __init__(self, dataset_name, dataset_df, x_vars, y_vars, output_directory, seed, preprocessing_callback=None, save_html=True, save_png=True, load_previous_results=False):
@@ -123,6 +124,7 @@ class Analysis():
         # self._run_all_in_one_plot()
         # Run descriptive time series analysis 
 
+    @timer_decorator
     def run_predictive(self):
         """Runs predictive analytics. This method will create models for each model type in the models_dict and store the model objects in the models_dict.
         This method will then call the requisite methods for each model object, including split_data, fit, save, plot, and report.
@@ -396,6 +398,7 @@ class Analysis():
             logging.info(f"Writing performance metrics for {k} to {output_file}")
             df.to_csv(output_file)
 
+    @timer_decorator
     def _call_model_funcs(self, model):
         """Helper function to call all model functions
         Args:
