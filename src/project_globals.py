@@ -21,7 +21,7 @@ class DataNames:
     #    DN.normalized'normalized' : {
     #        'train_data' : pd.DataFrame,
     #        'test_data' : pd.DataFrame
-    #    },
+    #    }, 
     #    'not_normalized' : {
     #        'train_data' : pd.DataFrame,
     #        'test_data' : pd.DataFrame

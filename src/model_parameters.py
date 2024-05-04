@@ -136,8 +136,8 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
         models_dict["LSTMSDE"] = {
             'lstm_sde_1' : {
                 DN.params: {
-                    'num_sims' : 1,
-                    'num_epochs' : 50, 
+                    'num_sims' : 5,
+                    'num_epochs' : 5, 
                     'time_steps' : 10,
                     'batch_size' : 32,
                     'shuffle' : True,
@@ -155,8 +155,8 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
             },
             'lstm_sde_2' : {
                 DN.params: {
-                    'num_sims' : 1,
-                    'num_epochs' : 500, 
+                    'num_sims' : 5,
+                    'num_epochs' : 10, 
                     'time_steps' : 10,
                     'batch_size' : 32,
                     'shuffle' : True,
@@ -174,8 +174,8 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
             },
             'lstm_sde_3' : {
                 DN.params: {
-                    'num_sims' : 1,
-                    'num_epochs' : 500, 
+                    'num_sims' : 5,
+                    'num_epochs' : 10, 
                     'time_steps' : 10,
                     'batch_size' : 32,
                     'shuffle' : True,
@@ -193,8 +193,8 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
             },
             'lstm_sde_4' : {
                 DN.params: {
-                    'num_sims' : 1,
-                    'num_epochs' : 2, 
+                    'num_sims' : 5,
+                    'num_epochs' : 10, 
                     'time_steps' : 30,
                     'batch_size' : 32,
                     'shuffle' : True,
@@ -223,10 +223,48 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
                     'activation' : 'relu',
                     'recurrent_activation' : 'sigmoid',
                     'num_sims' : 1,
-                    'num_layers': 10,
-                    'epochs': 500,
-                    'hidden_nodes': 50                }
+                    'num_layers': 5,
+                    'epochs': 5,
+                    'hidden_nodes': 50,
+                    'time_steps': 50,
+                }
             },
+            'lstm_5node_2' : {
+                'units' : 1,
+                'library_hyperparameters' : {
+                    'activation' : 'relu',
+                    'recurrent_activation' : 'sigmoid',
+                    'num_sims' : 5,
+                    'num_layers': 10,
+                    'epochs': 5,
+                    'hidden_nodes': 50,
+                    'time_steps': 10,
+                }
+            },
+            # 'lstm_5node_3' : {
+            #     'units' : 1,
+            #     'library_hyperparameters' : {
+            #         'activation' : 'relu',
+            #         'recurrent_activation' : 'sigmoid',
+            #         'num_sims' : 5,
+            #         'num_layers': 10,
+            #         'epochs': 5,
+            #         'hidden_nodes': 50,
+            #         'time_steps': 10,
+            #     }
+            # },
+            # 'lstm_5node_4' : {
+            #     'units' : 1,
+            #     'library_hyperparameters' : {
+            #         'activation' : 'relu',
+            #         'recurrent_activation' : 'sigmoid',
+            #         'num_sims' : 5,
+            #         'num_layers': 5,
+            #         'epochs': 5,
+            #         'hidden_nodes': 20,
+            #         'time_steps': 10,
+            #     }
+            # },
         }
     # For each model in the models dict, add in the test and train split parameters from create_test_train_split_params
     # Note that this applies the same test train split parameters to every model

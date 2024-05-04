@@ -89,7 +89,7 @@ if __name__ == "__main__":
     
     analysis.preprocess_datasets()
     #analysis.validate_datasets()
-    models_dict = create_models_dict(gbm=False, lstm=False, lstm_sde=True)
+    models_dict = create_models_dict(gbm=False, lstm=True, lstm_sde=False)
     analysis.set_models_for_analysis_objs(models_dict=models_dict)
     analysis.run_analysis(run_descriptive=False, run_predictive=True)
     # Print the stock names
