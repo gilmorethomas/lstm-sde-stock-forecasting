@@ -56,12 +56,14 @@ if __name__ == "__main__":
     # Create an analysis object for each stock
     # Create a list of stock names
     # stock_names = ["AAPL", "AMD", "AMZN", "EA", "GOOG", "INTC", "MSFT", "NFLX", "NVDA"]
-    stock_names = ["AAPL"]
+    stock_names = ["AMD"] #, "AMZN", "GOOG", "INTC", "MSFT", "NFLX", "NVDA"]
 
     # Create a list of stock dataframes
     stock_df_dict = {}
     raw_dir = path.join(os.path.dirname(os.path.realpath(__file__)), '..', 'input', '00_raw')
     output_dir = path.join(os.path.dirname(os.path.realpath(__file__)), '..', 'output')
+    #logging.set_logfile(output_dir, 'lstm_sde_stock_forecasting.log')
+
     for stock in stock_names:
         try: 
             stock_df_dict[stock] = pd.read_csv(path.join(raw_dir, stock, f'{stock}.csv'))
@@ -89,7 +91,7 @@ if __name__ == "__main__":
     
     analysis.preprocess_datasets()
     #analysis.validate_datasets()
-    models_dict = create_models_dict(gbm=False, lstm=True, lstm_sde=False)
+    models_dict = create_models_dict(gbm=True, lstm=False, lstm_sde=False)
     analysis.set_models_for_analysis_objs(models_dict=models_dict)
     analysis.run_analysis(run_descriptive=False, run_predictive=True)
     # Print the stock names

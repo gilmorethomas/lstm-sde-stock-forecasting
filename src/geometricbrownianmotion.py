@@ -95,7 +95,6 @@ class GeometricBrownianMotion(TimeSeriesModel):
                         logging.warning("Time increment is not a day, so the calculation of mu and sigma may not be correct")
                     # Calculate daily returns
                     returns = ((self.data_dict[DN.not_normalized][DN.train_data][col] / self.data_dict[DN.not_normalized][DN.train_data][col].shift(1)) - 1)[1:]
-                    import pdb; pdb.set_trace()
                     self.train_params['mu'][col] = np.mean(returns[-self.model_hyperparameters['window_size']:])
                     self.train_params['sigma'][col] = np.std(returns[-self.model_hyperparameters['window_size']:])
                     logging.info(f'Calculated mu={self.train_params["mu"][col]}, sigma={self.train_params["sigma"][col]} for {col}')

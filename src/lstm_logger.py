@@ -1,6 +1,6 @@
 import logging
 import colorlog
-
+from os import path
 
 formatter = colorlog.ColoredFormatter(
     "%(log_color)s%(levelname)-8s%(reset)s %(white)s%(message)s",
@@ -17,14 +17,30 @@ formatter = colorlog.ColoredFormatter(
     style='%'
 )
 
+
 logger = colorlog.getLogger('example_logger')
 handler = logging.StreamHandler()
 handler.setFormatter(formatter)
 logger.addHandler(handler)
-logger.setLevel(logging.DEBUG)
 
+def set_logfile(output_dir, name):
+            # Create handlers
+            c_handler = logging.StreamHandler()
+            f_handler = logging.FileHandler(path.join(output_dir, name))
+            c_handler.setLevel(logging.INFO)
+            f_handler.setLevel(logging.INFO)
 
-def set_level(level):
+            # Create formatters and add it to handlers
+            c_format = logging.Formatter('%(name)s - %(levelname)s - %(message)s')
+            f_format = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+            c_handler.setFormatter(c_format)
+            f_handler.setFormatter(f_format)
+
+            # Add handlers to the logger
+            logger.addHandler(c_handler)
+            logger.addHandler(f_handler)
+
+def setLevel(level, logger=logger):
     levels = {
         'DEBUG': logging.DEBUG,
         'INFO': logging.INFO,
@@ -34,5 +50,4 @@ def set_level(level):
     }    
     logger.setLevel(levels.get(level.upper(), logging.DEBUG))
 
-
-
+set_logfile('output', 'lstm_sde_stock_forecasting.log')

@@ -116,6 +116,11 @@ class AnalysisManager():
         # run analysis on each object
         for analysis_name, analysis_obj in self.analysis_objects_dict.items(): 
             logging.info(f"Running analysis for {analysis_name}")
+
+            if not path.exists(path.join(self.output_dir, analysis_name)):
+                makedirs(path.join(self.output_dir, analysis_name))
+            #logging.basicConfig(filename = path.join(self.output_dir, analysis_name, 'lstm_sde_stock_forecasting.log'), level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+
             analysis_obj.run_analysis(run_descriptive, run_predictive)
         # Run cross-model analysis 
         #self.run_cross_model_analysis()
