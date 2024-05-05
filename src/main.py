@@ -53,6 +53,9 @@ if __name__ == "__main__":
     # Set the logger 
     #Options are DEBUG, INFO, WARNING, ERROR, and CRITICAL. These are increasing order and will change what gets printed out
     logging.setLevel("INFO")
+    start_str = "*" * 50
+    logging.info(f"{start_str}{start_str} \n\n Starting the lstm-sde-stock-forecasting project {start_str}{start_str} \n\n")
+    logging.info("Starting the lstm-sde-stock-forecasting project")
     # Create an analysis object for each stock
     # Create a list of stock names
     # stock_names = ["AAPL", "AMD", "AMZN", "EA", "GOOG", "INTC", "MSFT", "NFLX", "NVDA"]

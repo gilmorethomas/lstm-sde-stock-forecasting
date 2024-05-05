@@ -410,8 +410,10 @@ class Analysis():
             model.save()
             model.plot()
             model.report()
+            return True
         except Exception as e:
             logging.error(f"Error occurred during analysis for {model.model_name}: {e}")
+            return False
     def _validate_models(self):
         # Validate the models dictionary. Make sure that the specified models are models 
         # that exist in pytorch, sklearn, or other libraries that we are using
