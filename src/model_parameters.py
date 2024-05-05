@@ -663,19 +663,6 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
                     'time_steps': 50,
                 }
             },
-
-            'lstm_5node_layers7' : {
-                'units' : 1,
-                'library_hyperparameters' : {
-                    'activation' : 'relu',
-                    'recurrent_activation' : 'sigmoid',
-                    'num_sims' : 1,
-                    'num_layers': 50,
-                    'epochs': 10,
-                    'hidden_nodes': 25,
-                    'time_steps': 50,
-                }
-            },
         }
     # For each model in the models dict, add in the test and train split parameters from create_test_train_split_params
     # Note that this applies the same test train split parameters to every model
