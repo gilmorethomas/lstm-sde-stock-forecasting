@@ -66,7 +66,7 @@ class Analysis():
         if float64_cols is not None and len(float64_cols) > 0:
             logging.info(f"Converting columns {float64_cols} to float32")
             self.dataset_df[float64_cols] = self.dataset_df[float64_cols].astype('float32')
-        self.dataset_df.to_csv(path.join(self.output_directory, f'{DN.all_data}.csv'))
+        self.dataset_df.to_csv(path.join(self.output_directory, f'{DN.all_data}.csv'), float_format='%.2f')
 
     def run_analysis(self, run_descriptive=True, run_predictive=True, run_cross_model=True): 
         """Top level method used to run analysis. This method will call the requisite methods for each analysis object, including run_descriptive, run_predictive, and run_cross_model.
@@ -115,7 +115,7 @@ class Analysis():
         output_file = path.join(self.output_directory, f'{self.dataset_name}_stats.csv')
         logging.info(f"Stats for {self.dataset_name} being written to {output_file}")
 
-        stats_df.to_csv(output_file)
+        stats_df.to_csv(output_file, float_format='%.2f')
 
     def run_plots(self, plot_types):
         # run plots for each analysis object
@@ -396,7 +396,7 @@ class Analysis():
             if not path.exists(path.join(output_dir, MS.perf)):
                 makedirs(path.join(output_dir, MS.perf))
             logging.info(f"Writing performance metrics for {k} to {output_file}")
-            df.to_csv(output_file)
+            df.to_csv(output_file, float_format='%.2f')
 
     @timer_decorator
     def _call_model_funcs(self, model):
