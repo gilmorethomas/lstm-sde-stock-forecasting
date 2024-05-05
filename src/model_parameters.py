@@ -136,7 +136,7 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
         models_dict["LSTMSDE"] = {
             'lstm_sde_baseline' : {
                 DN.params: {
-                    'num_sims' : 5,
+                    'num_sims' : 1,
                     'num_epochs' : 5, 
                     'time_steps' : 10,
                     'batch_size' : 32,
@@ -155,7 +155,7 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
             },
             'lstm_sde_learningrate1' : {
                 DN.params: {
-                    'num_sims' : 5,
+                    'num_sims' : 1,
                     'num_epochs' : 10, 
                     'time_steps' : 10,
                     'batch_size' : 32,
@@ -174,7 +174,7 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
             },
             'lstm_sde_learningrate2' : {
                 DN.params: {
-                    'num_sims' : 5,
+                    'num_sims' : 1,
                     'num_epochs' : 10, 
                     'time_steps' : 10,
                     'batch_size' : 32,
@@ -193,7 +193,7 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
             },
             'lstm_sde_hidden1' : {
                 DN.params: {
-                    'num_sims' : 5,
+                    'num_sims' : 1,
                     'num_epochs' : 10, 
                     'time_steps' : 30,
                     'batch_size' : 32,
@@ -212,7 +212,7 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
             },
             'lstm_sde_hidden2' : {
                 DN.params: {
-                    'num_sims' : 5,
+                    'num_sims' : 1,
                     'num_epochs' : 10, 
                     'time_steps' : 30,
                     'batch_size' : 32,
@@ -231,7 +231,7 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
             },
             'lstm_sde_hidden3' : {
                 DN.params: {
-                    'num_sims' : 5,
+                    'num_sims' : 1,
                     'num_epochs' : 10, 
                     'time_steps' : 30,
                     'batch_size' : 32,
@@ -250,7 +250,7 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
             },
             'lstm_sde_hidden4' : {
                 DN.params: {
-                    'num_sims' : 5,
+                    'num_sims' : 1,
                     'num_epochs' : 10, 
                     'time_steps' : 30,
                     'batch_size' : 32,
@@ -269,7 +269,7 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
             },
             'lstm_sde_hidden5' : {
                 DN.params: {
-                    'num_sims' : 5,
+                    'num_sims' : 1,
                     'num_epochs' : 10, 
                     'time_steps' : 30,
                     'batch_size' : 32,
@@ -288,7 +288,7 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
             },
             'lstm_sde_dlstm1' : {
                 DN.params: {
-                    'num_sims' : 5,
+                    'num_sims' : 1,
                     'num_epochs' : 5, 
                     'time_steps' : 10,
                     'batch_size' : 32,
@@ -307,7 +307,7 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
             },
             'lstm_sde_dlstm2' : {
                 DN.params: {
-                    'num_sims' : 5,
+                    'num_sims' : 1,
                     'num_epochs' : 5, 
                     'time_steps' : 10,
                     'batch_size' : 32,
@@ -326,7 +326,7 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
             },
             'lstm_sde_dlstm3' : {
                 DN.params: {
-                    'num_sims' : 5,
+                    'num_sims' : 1,
                     'num_epochs' : 5, 
                     'time_steps' : 10,
                     'batch_size' : 32,
@@ -345,7 +345,7 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
             },
             'lstm_sde_dlstm4' : {
                 DN.params: {
-                    'num_sims' : 5,
+                    'num_sims' : 1,
                     'num_epochs' : 5, 
                     'time_steps' : 10,
                     'batch_size' : 32,
@@ -364,7 +364,7 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
             },
             'lstm_sde_dlstmhidden1' : {
                 DN.params: {
-                    'num_sims' : 5,
+                    'num_sims' : 1,
                     'num_epochs' : 5, 
                     'time_steps' : 10,
                     'batch_size' : 32,
@@ -383,7 +383,7 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
             },
             'lstm_sde_dlstmhidden2' : {
                 DN.params: {
-                    'num_sims' : 5,
+                    'num_sims' : 1,
                     'num_epochs' : 5, 
                     'time_steps' : 10,
                     'batch_size' : 32,
@@ -402,7 +402,7 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
             },
             'lstm_sde_timesteps1' : {
                 DN.params: {
-                    'num_sims' : 5,
+                    'num_sims' : 1,
                     'num_epochs' : 5, 
                     'time_steps' : 5,
                     'batch_size' : 32,
@@ -421,7 +421,7 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
             },
             'lstm_sde_timesteps2' : {
                 DN.params: {
-                    'num_sims' : 5,
+                    'num_sims' : 1,
                     'num_epochs' : 5, 
                     'time_steps' : 30,
                     'batch_size' : 32,
@@ -440,7 +440,7 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
             },
             'lstm_sde_timesteps3' : {
                 DN.params: {
-                    'num_sims' : 5,
+                    'num_sims' : 1,
                     'num_epochs' : 5, 
                     'time_steps' : 60,
                     'batch_size' : 32,
@@ -459,7 +459,7 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
             },
             'lstm_sde_timesteps4' : {
                 DN.params: {
-                    'num_sims' : 5,
+                    'num_sims' : 1,
                     'num_epochs' : 5, 
                     'time_steps' : 180,
                     'batch_size' : 32,
@@ -488,31 +488,31 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
                 'library_hyperparameters' : {
                     'activation' : 'relu',
                     'recurrent_activation' : 'sigmoid',
-                    'num_sims' : 5,
+                    'num_sims' : 1,
                     'num_layers': 5,
                     'epochs': 10,
                     'hidden_nodes': 25,
                     'time_steps': 25,
                 }
             },
-            # 'lstm_5node_epochtest1' : {
-            #     'units' : 1,
-            #     'library_hyperparameters' : {
-            #         'activation' : 'relu',
-            #         'recurrent_activation' : 'sigmoid',
-            #         'num_sims' : 5,
-            #         'num_layers': 5,
-            #         'epochs': 5,
-            #         'hidden_nodes': 25,
-            #         'time_steps': 10,
-            #     }
-            # },
+            'lstm_5node_epochtest1' : {
+                'units' : 1,
+                'library_hyperparameters' : {
+                    'activation' : 'relu',
+                    'recurrent_activation' : 'sigmoid',
+                    'num_sims' : 1,
+                    'num_layers': 5,
+                    'epochs': 5,
+                    'hidden_nodes': 25,
+                    'time_steps': 10,
+                }
+            },
             'lstm_5node_epochtest2' : {
                 'units' : 1,
                 'library_hyperparameters' : {
                     'activation' : 'relu',
                     'recurrent_activation' : 'sigmoid',
-                    'num_sims' : 5,
+                    'num_sims' : 1,
                     'num_layers': 5,
                     'epochs': 15,
                     'hidden_nodes': 25,
@@ -524,7 +524,7 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
                 'library_hyperparameters' : {
                     'activation' : 'relu',
                     'recurrent_activation' : 'sigmoid',
-                    'num_sims' : 5,
+                    'num_sims' : 1,
                     'num_layers': 5,
                     'epochs': 10,
                     'hidden_nodes': 25,
@@ -536,111 +536,143 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
                 'library_hyperparameters' : {
                     'activation' : 'relu',
                     'recurrent_activation' : 'sigmoid',
-                    'num_sims' : 5,
+                    'num_sims' : 1,
                     'num_layers': 5,
                     'epochs': 10,
                     'hidden_nodes': 25,
                     'time_steps': 50,
                 }
             },
-            # 'lstm_5node_timestep3' : {
-            #     'units' : 1,
-            #     'library_hyperparameters' : {
-            #         'activation' : 'relu',
-            #         'recurrent_activation' : 'sigmoid',
-            #         'num_sims' : 5,
-            #         'num_layers': 5,
-            #         'epochs': 10,
-            #         'hidden_nodes': 25,
-            #         'time_steps': 100,
-            #     }
-            # },
-
+            'lstm_5node_timestep3' : {
+                'units' : 1,
+                'library_hyperparameters' : {
+                    'activation' : 'relu',
+                    'recurrent_activation' : 'sigmoid',
+                    'num_sims' : 1,
+                    'num_layers': 5,
+                    'epochs': 10,
+                    'hidden_nodes': 25,
+                    'time_steps': 100,
+                }
+            },
             'lstm_5node_hiddennodes1' : {
                 'units' : 1,
                 'library_hyperparameters' : {
                     'activation' : 'relu',
                     'recurrent_activation' : 'sigmoid',
-                    'num_sims' : 5,
+                    'num_sims' : 1,
                     'num_layers': 5,
                     'epochs': 10,
                     'hidden_nodes': 10,
                     'time_steps': 25,
                 }
             },
-            # 'lstm_5node_hiddennodes2' : {
-            #     'units' : 1,
-            #     'library_hyperparameters' : {
-            #         'activation' : 'relu',
-            #         'recurrent_activation' : 'sigmoid',
-            #         'num_sims' : 5,
-            #         'num_layers': 5,
-            #         'epochs': 10,
-            #         'hidden_nodes': 25,
-            #         'time_steps': 25,
-            #     }
-            # },
-            # 'lstm_5node_hiddennodes3' : {
-            #     'units' : 1,
-            #     'library_hyperparameters' : {
-            #         'activation' : 'relu',
-            #         'recurrent_activation' : 'sigmoid',
-            #         'num_sims' : 5,
-            #         'num_layers': 5,
-            #         'epochs': 10,
-            #         'hidden_nodes': 50,
-            #         'time_steps': 25,
-            #     }
-            # },
-            # 'lstm_5node_layers1' : {
-            #     'units' : 1,
-            #     'library_hyperparameters' : {
-            #         'activation' : 'relu',
-            #         'recurrent_activation' : 'sigmoid',
-            #         'num_sims' : 5,
-            #         'num_layers': 10,
-            #         'epochs': 10,
-            #         'hidden_nodes': 25,
-            #         'time_steps': 50,
-            #     }
-            # },
+            'lstm_5node_hiddennodes2' : {
+                'units' : 1,
+                'library_hyperparameters' : {
+                    'activation' : 'relu',
+                    'recurrent_activation' : 'sigmoid',
+                    'num_sims' : 1,
+                    'num_layers': 5,
+                    'epochs': 10,
+                    'hidden_nodes': 25,
+                    'time_steps': 25,
+                }
+            },
+            'lstm_5node_hiddennodes3' : {
+                'units' : 1,
+                'library_hyperparameters' : {
+                    'activation' : 'relu',
+                    'recurrent_activation' : 'sigmoid',
+                    'num_sims' : 1,
+                    'num_layers': 5,
+                    'epochs': 10,
+                    'hidden_nodes': 50,
+                    'time_steps': 25,
+                }
+            },
+            'lstm_5node_layers1' : {
+                'units' : 1,
+                'library_hyperparameters' : {
+                    'activation' : 'relu',
+                    'recurrent_activation' : 'sigmoid',
+                    'num_sims' : 1,
+                    'num_layers': 1,
+                    'epochs': 10,
+                    'hidden_nodes': 25,
+                    'time_steps': 50,
+                }
             'lstm_5node_layers2' : {
                 'units' : 1,
                 'library_hyperparameters' : {
                     'activation' : 'relu',
                     'recurrent_activation' : 'sigmoid',
-                    'num_sims' : 5,
+                    'num_sims' : 1,
+                    'num_layers': 2,
+                    'epochs': 10,
+                    'hidden_nodes': 25,
+                    'time_steps': 50,
+                }
+            'lstm_5node_layers3' : {
+                'units' : 1,
+                'library_hyperparameters' : {
+                    'activation' : 'relu',
+                    'recurrent_activation' : 'sigmoid',
+                    'num_sims' : 1,
+                    'num_layers': 5,
+                    'epochs': 10,
+                    'hidden_nodes': 25,
+                    'time_steps': 50,
+                }
+            'lstm_5node_layers4' : {
+                'units' : 1,
+                'library_hyperparameters' : {
+                    'activation' : 'relu',
+                    'recurrent_activation' : 'sigmoid',
+                    'num_sims' : 1,
+                    'num_layers': 10,
+                    'epochs': 10,
+                    'hidden_nodes': 25,
+                    'time_steps': 50,
+                }
+            },
+            'lstm_5node_layers5' : {
+                'units' : 1,
+                'library_hyperparameters' : {
+                    'activation' : 'relu',
+                    'recurrent_activation' : 'sigmoid',
+                    'num_sims' : 1,
                     'num_layers': 25,
                     'epochs': 10,
                     'hidden_nodes': 25,
                     'time_steps': 50,
                 }
             },
-            # 'lstm_5node_layers3' : {
-            #     'units' : 1,
-            #     'library_hyperparameters' : {
-            #         'activation' : 'relu',
-            #         'recurrent_activation' : 'sigmoid',
-            #         'num_sims' : 5,
-            #         'num_layers': 50,
-            #         'epochs': 10,
-            #         'hidden_nodes': 25,
-            #         'time_steps': 50,
-            #     }
-            # },
+            'lstm_5node_layers6' : {
+                'units' : 1,
+                'library_hyperparameters' : {
+                    'activation' : 'relu',
+                    'recurrent_activation' : 'sigmoid',
+                    'num_sims' : 1,
+                    'num_layers': 50,
+                    'epochs': 10,
+                    'hidden_nodes': 25,
+                    'time_steps': 50,
+                }
+            },
 
-            # 'lstm_5node_layers4' : {
-            #     'units' : 1,
-            #     'library_hyperparameters' : {
-            #         'activation' : 'relu',
-            #         'recurrent_activation' : 'sigmoid',
-            #         'num_sims' : 5,
-            #         'num_layers': 50,
-            #         'epochs': 10,
-            #         'hidden_nodes': 25,
-            #         'time_steps': 50,
-            #     }
-            # },
+            'lstm_5node_layers7' : {
+                'units' : 1,
+                'library_hyperparameters' : {
+                    'activation' : 'relu',
+                    'recurrent_activation' : 'sigmoid',
+                    'num_sims' : 1,
+                    'num_layers': 50,
+                    'epochs': 10,
+                    'hidden_nodes': 25,
+                    'time_steps': 50,
+                }
+            },
         }
     # For each model in the models dict, add in the test and train split parameters from create_test_train_split_params
     # Note that this applies the same test train split parameters to every model

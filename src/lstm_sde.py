@@ -341,8 +341,8 @@ class LSTMSDE_to_train(TimeSeriesModel):
                 eval_data_to_insert = this_data[eval_filter].numpy().reshape(-1, 1)
                 data_dict[eval_filter][f'{y_var}_{seed_num}'] = eval_data_to_insert
                 data_dict_not_norm[eval_filter][f'{y_var}_{seed_num}'] = self.scaler.inverse_transform(eval_data_to_insert)
-        data_dict = drop_nans_from_data_dict(data_dict, self, self.fit)
-        data_dict_not_norm = drop_nans_from_data_dict(data_dict_not_norm, self, self.fit)
+        data_dict = drop_nans_from_data_dict(copy.deepcopy(data_dict), calling_class=self.__class__, context='fit')
+        data_dict_not_norm = drop_nans_from_data_dict(copy.deepcopy(data_dict_not_norm), calling_class=self.__class__, context='fit')
         return {DN.normalized : data_dict, DN.not_normalized : data_dict_not_norm}
     @timer_decorator
     def _train(self, model, dataloader, optimizer, n_epochs, loss_fn):

@@ -56,7 +56,7 @@ if __name__ == "__main__":
     # Create an analysis object for each stock
     # Create a list of stock names
     # stock_names = ["AAPL", "AMD", "AMZN", "EA", "GOOG", "INTC", "MSFT", "NFLX", "NVDA"]
-    stock_names = ["AMD"] #, "AMZN", "GOOG", "INTC", "MSFT", "NFLX", "NVDA"]
+    stock_names = ["AAPL"] #, "AMZN", "GOOG", "INTC", "MSFT", "NFLX", "NVDA"]
 
     # Create a list of stock dataframes
     stock_df_dict = {}
@@ -82,7 +82,7 @@ if __name__ == "__main__":
         save_png=False,
         save_html=True,
         plotting = {'x_vars': 'Date', 'y_vars': None}, 
-        overwrite_out_dir=False,
+        overwrite_out_dir=True,
         load_previous_results=False # Load previous results, rather than refitting a model
         )
     analysis.set_preprocessing_callback(preprocessing_callback)
@@ -91,7 +91,7 @@ if __name__ == "__main__":
     
     analysis.preprocess_datasets()
     #analysis.validate_datasets()
-    models_dict = create_models_dict(gbm=True, lstm=False, lstm_sde=False)
+    models_dict = create_models_dict(gbm=False, lstm=False, lstm_sde=True)
     analysis.set_models_for_analysis_objs(models_dict=models_dict)
     analysis.run_analysis(run_descriptive=False, run_predictive=True)
     # Print the stock names
