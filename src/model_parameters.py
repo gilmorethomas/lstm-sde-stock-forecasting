@@ -2,9 +2,9 @@ from dateutil.relativedelta import relativedelta
 from pandas import to_datetime
 from project_globals import DataNames as DN 
 def create_test_train_split_params(
-    start_date_train='2010-01-01', # FOR TESTING 
-    start_date_test='2020-10-31', # FOR TESTING 
-    evaluation_start_date='2020-12-31' # FOR TESTING
+    start_date_train='2009-01-01', # FOR TESTING 
+    start_date_test='2017-01-02', # FOR TESTING 
+    evaluation_start_date='2019-01-02' # FOR TESTING
     #start_date_train='2009-01-01', # USE THIS, ABOVE IS FOR TESTING 
     #start_date_test='2017-01-02', # USE THIS, ABOVE IS FOR TESTING 
     #evaluation_start_date='2019-01-01' # USE THIS, ABOVE IS FOR TESTING 
@@ -183,7 +183,7 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
             'lstm_sde_2' : {
                 DN.params: {
                     'num_sims' : 1,
-                    'num_epochs' : 1000, 
+                    'num_epochs' : 50, 
                     'time_steps' : 10,
                     'batch_size' : 32,
                     'shuffle' : True,
@@ -202,7 +202,7 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
             'lstm_sde_3' : {
                 DN.params: {
                     'num_sims' : 1,
-                    'num_epochs' : 1000, 
+                    'num_epochs' : 50, 
                     'time_steps' : 10,
                     'batch_size' : 32,
                     'shuffle' : True,
@@ -251,7 +251,7 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
                     'recurrent_activation' : 'sigmoid',
                     'num_sims' : 1,
                     'num_layers': 10,
-                    'epochs': 1000,
+                    'epochs': 50,
                     'hidden_nodes': 50
                 }
             },
