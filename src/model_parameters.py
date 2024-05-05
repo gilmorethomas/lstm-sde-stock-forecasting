@@ -614,6 +614,7 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
                     'hidden_nodes': 25,
                     'time_steps': 50,
                 }
+            },
             'lstm_5node_layers3' : {
                 'units' : 1,
                 'library_hyperparameters' : {
@@ -625,6 +626,7 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
                     'hidden_nodes': 25,
                     'time_steps': 50,
                 }
+            },
             'lstm_5node_layers4' : {
                 'units' : 1,
                 'library_hyperparameters' : {
