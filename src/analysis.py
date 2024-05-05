@@ -404,11 +404,14 @@ class Analysis():
         Args:
             model (_type_): _description_
         """        
-        model.split_data()
-        model.fit()
-        model.save()
-        model.plot()
-        model.report()
+        try:
+            model.split_data()
+            model.fit()
+            model.save()
+            model.plot()
+            model.report()
+        except Exception as e:
+            logging.error(f"Error occurred during analysis for {model.model_name}: {e}")
     def _validate_models(self):
         # Validate the models dictionary. Make sure that the specified models are models 
         # that exist in pytorch, sklearn, or other libraries that we are using

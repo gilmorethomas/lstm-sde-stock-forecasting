@@ -120,8 +120,10 @@ class AnalysisManager():
             if not path.exists(path.join(self.output_dir, analysis_name)):
                 makedirs(path.join(self.output_dir, analysis_name))
             #logging.basicConfig(filename = path.join(self.output_dir, analysis_name, 'lstm_sde_stock_forecasting.log'), level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-
-            analysis_obj.run_analysis(run_descriptive, run_predictive)
+            try:
+                analysis_obj.run_analysis(run_descriptive, run_predictive)
+            except Exception as e:
+                logging.error(f"Error occurred during analysis for {analysis_name}: {e}")
         # Run cross-model analysis 
         #self.run_cross_model_analysis()
     def run_cross_model_analysis(self):
