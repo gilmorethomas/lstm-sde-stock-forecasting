@@ -50,4 +50,4 @@ def setLevel(level, logger=logger):
     }    
     logger.setLevel(levels.get(level.upper(), logging.DEBUG))
 
-set_logfile(path.join(path.abspath(__file__), '..', 'output'), 'lstm_sde_stock_forecasting.log')
+set_logfile(path.join(path.abspath(path.dirname(__file__)), '..', 'output'), 'lstm_sde_stock_forecasting.log')
