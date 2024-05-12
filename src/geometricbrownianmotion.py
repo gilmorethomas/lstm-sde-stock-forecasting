@@ -1,5 +1,4 @@
 from lstm_logger import logger as logging
-from project_globals import TimeSeriesGlobals as TSGlobals
 from project_globals import DataNames as DN
 
 from timeseriesmodel import TimeSeriesModel
@@ -99,7 +98,7 @@ class GeometricBrownianMotion(TimeSeriesModel):
                     self.train_params['mu'][col] = np.mean(returns[-self.model_hyperparameters['window_size']:])
                     self.train_params['sigma'][col] = np.std(returns[-self.model_hyperparameters['window_size']:])
                     logging.info(f'Calculated mu={self.train_params["mu"][col]}, sigma={self.train_params["sigma"][col]} for {col}')
-                except TypeError as e:
+                except TypeError:
                     logging.error(f"Could not calculate mu and sigma for {col}")
 
         else:
@@ -129,12 +128,7 @@ class GeometricBrownianMotion(TimeSeriesModel):
         data_dict[DN.not_normalized][DN.train_data] = data_dict[DN.not_normalized][DN.train_data].merge(gbm_train, on='Days_since_start')
         data_dict[DN.not_normalized][DN.test_data] = data_dict[DN.not_normalized][DN.test_data].merge(gbm_test, on='Days_since_start')
 
-        norm_dataset = {}
         # Normalize the data
-        # gbm_train_norm = gbm_train.copy(deep=True)
-        # gbm_test_norm = gbm_test.copy(deep=True)
-        # self.scaler.fit(gbm_train_norm[self.model_responses[DN.raw]])
-        # self.scaler.fit(gbm_test_norm[self.model_responses[DN.raw]])
         gbm_train_norm = gbm_train.copy(deep=True)
         gbm_test_norm = gbm_test.copy(deep=True)
         self.scaler.fit(gbm_train_norm[self.model_responses[DN.raw]])
@@ -154,14 +148,6 @@ class GeometricBrownianMotion(TimeSeriesModel):
             gbm_eval_norm[self.model_responses[DN.raw]] = self.scaler.transform(gbm_eval_norm[self.model_responses[DN.raw]])
             data_dict[DN.normalized][eval_name] = data_dict[DN.normalized][eval_name].merge(gbm_eval_norm, on='Days_since_start')
             
-            #self.scaler.fit(gbm_eval_norm']])
-        # Build the dataset for normalized data 
-        
-
-        # Add the data to the data_dict
-
-        #data_dict = {DN.normalized : norm_dataset, DN.not_normalized : fit_data}
-
         super().fit(data_dict)
     
     def save(self):
@@ -175,7 +161,7 @@ class GeometricBrownianMotion(TimeSeriesModel):
             train_data (pd.DataFrame): Training data
 
         Returns:
-            _type_: Dataframe of simulated GBM data
+            pd.DataFrame: Dataframe of simulated GBM data
         """       
         assert 'Days_since_start' in dataset.columns, "Days_since_start must be in dataset columns for gbm"
         nsteps = dataset['Days_since_start'].max() - dataset['Days_since_start'].min()
@@ -204,10 +190,6 @@ class GeometricBrownianMotion(TimeSeriesModel):
 
         return train_data_fit
 
-    def test(self):
-        ...
-    def predict(self):
-        ...
     def plot(self):
         # Call the base model class plotting function 
         super().plot()
@@ -215,8 +197,6 @@ class GeometricBrownianMotion(TimeSeriesModel):
     def report(self):
         super().report()
     
-
-
 class _GeometricBrownianMotion():
     """A helper class that implements the specifics of model fitting and prediction for the Geometric Brownian Motion model.
     """    
@@ -247,7 +227,6 @@ class _GeometricBrownianMotion():
         
         for i in range(num_sims):
             random_array_input = random_array[:,i]
-        
             _, S = _GeometricBrownianMotion.euler_maruyama_geometric_brownian_motion(S0=start, mu=mu, sigma=sigma, dt=dt, N=N, random_array=random_array_input)
             # Store the stock prices in the St array
             St[:,i] = S
@@ -287,115 +266,7 @@ class _GeometricBrownianMotion():
 
         return t, S
     
-    @staticmethod
-    def simulate_gbm_3(nsteps=1000, t_years=0, num_sims=1, start=1, mu=0.0001, sigma=0.02, dt=0.01):
-        return _GeometricBrownianMotion._simulate_gbm_3(T=nsteps, scen_size=num_sims, start_price=start, mu=mu, sigma=sigma, dt=dt)
-    @staticmethod
-    def _simulate_gbm_3(start_price, T, dt, scen_size, mu=None, sigma=None, daily_data=None):
-        """_summary_
-
-        Args:
-            daily_returns_absolute (_type_): Daily stock data (not normalized)
-            start_price (_type_): _description_
-            T (_type_): _description_
-            dt (_type_): _description_
-            scen_size (_type_): _description_
-        """
-
-        daily_returns = ((daily_data / daily_data.shift(1)) - 1)[1:] if daily_data is not None else None
-        # Calculate mu and sigma if not provided using the daily returns data 
-        mu = np.mean(daily_returns) if mu is None else mu
-        sigma = np.std(daily_returns) if sigma is None else sigma
-
-        So = start_price 
-        N = T / dt
-        t = np.arange(1, int(N) + 1)
-        # Create a dictionary of Brownian increments
-        br = {f'{scen}': np.random.normal(0, 1, int(N)) for scen in range(1, scen_size + 1)}
-        # Create a dictionary of Brownian paths
-        W = {str(scen): br[str(scen)].cumsum() for scen in range(1, scen_size + 1)}
-
-        # Calculating drift and diffusion components
-        drift = (mu - 0.5 * sigma ** 2) * t
-        diffusion = {str(scen): sigma * W[str(scen)] for scen in range(1, scen_size + 1)}
-
-        # Making the predictions
-        S = np.array([So * np.exp(drift + diffusion[str(scen)]) for scen in range(1, scen_size + 1)])
-        S = np.hstack((np.array([[So] for scen in range(scen_size)]), S))  # add So to the beginning series
-        # Calculate the max and min of the simulations
-        S_max = [S[:, i].max() for i in range(0, int(N))]
-        S_min = [S[:, i].min() for i in range(0, int(N))]
-        # Calculate the predicted stock price, which is the average of the max and min
-        S_pred = .5 * np.array(S_max) + .5 * np.array(S_min)
-        #final_df.index = test_set.index
-        #mse = 1/len(final_df) * np.sum((final_df['pred'] - final_df['real']) ** 2)
-        return t, S_pred
-    
-if __name__=='__main__':
-        # main variables
-    # stock_name    :   ticker symbol from yahoo finance
-    # start_date    :   start date to download prices
-    # end_date      :   end date to download prices
-    # pred_end_date :   date until which you want to predict price
-    # scen_size     :   different possible scenarios
-    import yfinance as yf
-    
-    stock_name = 'AAPL'
-    start_date = '2010-01-01'
-    end_date = '2020-10-31'
-    pred_end_date = '2020-12-31'
-    scen_size = 25
-    prices = yf.download(tickers=stock_name, start=start_date, end=pred_end_date)['Adj Close']
-    train_set = prices.loc[:end_date] # DON'T NORMALIZE!! / prices.loc[:end_date].max()
-    daily_returns = ((train_set / train_set.shift(1)) - 1)[1:]
-
-    # Geometric Brownian Motion (GBM)
-
-    # Parameter Definitions
-
-    # So    :   initial stock price
-    # dt    :   time increment -> a day in our case
-    # T     :   length of the prediction time horizon(how many time points to predict, same unit with dt(days))
-    # N     :   number of time points in prediction the time horizon -> T/dt
-    # t     :   array for time points in the prediction time horizon [1, 2, 3, .. , N]
-    # mu    :   mean of historical daily returns
-    # sigma :   standard deviation of historical daily returns
-    # b     :   array for brownian increments
-    # W     :   array for brownian path
-
-
-    # Parameter Assignments
-    So = train_set[-1]
-    dt = 1  # day   # User input
-    n_of_wkdays = pd.date_range(start=pd.to_datetime(end_date,
-                                                    format="%Y-%m-%d") + pd.Timedelta('1 days'),
-                                end=pd.to_datetime(pred_end_date,
-                                                format="%Y-%m-%d")).to_series().map(lambda x: 1 if x.isoweekday() in range(1, 6) else 0).sum()
-                                                #format="%Y-%m-%d")).to_series().map(lambda x: 1 if x.isoweekday() in range(1, 6) else 1).sum()
-    T = n_of_wkdays
-    N = T / dt
-    t = np.arange(1, int(N) + 1)
-    mu = np.mean(daily_returns)
-    sigma = np.std(daily_returns)
-    _, sims = GeometricBrownianMotion._simulate_gbm_3(daily_data = train_set, start_price=So, T = T, dt = dt, scen_size=scen_size)
-    # def simulate_gbm_3(daily_data, start_price, T, dt, scen_size):
-    import matplotlib.pyplot as plt
-    plt.rcParams["font.family"] = "serif"
-    fig, ax = plt.subplots()
-    ax.spines['right'].set_visible(False)
-    ax.spines['top'].set_visible(False)
-    plt.suptitle('Monte-Carlo Simulation: ' + str(scen_size) + ' simulations', fontsize=20)
-    plt.title('Asset considered: {}'.format(stock_name))
-    plt.ylabel('USD Price')
-    plt.xlabel('Prediction Days')
-    print('Training')
-    for i in range(scen_size):
-        plt.plot(pd.date_range(start=train_set.index[-1],
-                            end=pred_end_date,
-                            freq='D').map(lambda x: x if x.isoweekday() in range(1, 6) else np.nan).dropna(), S[i, :])
-        
     @classmethod
     def load_from_previous_output(cls, class_params):# , save_dir, model_name):
         instance = super().load_from_previous_output(class_params)
         return instance
-        # Any custom stuff needed here

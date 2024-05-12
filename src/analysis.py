@@ -1,12 +1,6 @@
-import os
 from os import path, makedirs
-import re
-import copy 
-
+from copy import deepcopy
 import pandas as pd
-from numpy.random import RandomState
-import tensorflow as tf
-import torch
 
 from lstm_logger import logger as logging
 from project_globals import DataNames as DN
@@ -14,13 +8,27 @@ from project_globals import ModelTypes as MT
 from project_globals import ModelStructure as MS
 
 from plotting import plot_all_x_y_combinations, plot_multiple_y_cols, finalize_plot
-from model import Model
 from lstm import LSTM 
 from geometricbrownianmotion import GeometricBrownianMotion
 from lstm_sde import LSTMSDE_to_train as LSTMSDE
+from utils import timer_decorator, drop_nans_from_data_dict
             
 class Analysis(): 
     def __init__(self, dataset_name, dataset_df, x_vars, y_vars, output_directory, seed, preprocessing_callback=None, save_html=True, save_png=True, load_previous_results=False):
+        """Creates an analysis object for a given dataset. This object will preprocess the dataset, run descriptive and predictive analytics, and run cross-model analysis.
+
+        Args:
+            dataset_name (str): The name of the dataset
+            dataset_df (pd.Dataframe): The dataset to be analyzed 
+            x_vars (list[str]): The x variables to be used in the analysis 
+            y_vars (list[str]): The y variables to be used in the analysis 
+            output_directory (str, path-like): The output directory to write the results to 
+            seed (np.random.RandomState): The random state manager to be used in the analysis #TODO not fully tied in everywhere 
+            preprocessing_callback (function handle, optional): The function handle to preprocess the dataset. Defaults to None.
+            save_html (bool, optional): Whether or not to save htmls for plots. Defaults to True.
+            save_png (bool, optional): Whether or not to save pngs for plots. Defaults to True.
+            load_previous_results (bool, optional): Whether or not to load previous results, as opposed to re-running models. Defaults to False.
+        """        
         self.dataset_name = dataset_name
         self._raw_dataset_df = dataset_df
         self.preprocessing_callback = preprocessing_callback
@@ -41,6 +49,8 @@ class Analysis():
             logging.warning(separator)
             self.load_from_previous_output()
     def preprocess_dataset(self):
+        """Preprocesses the dataset. This method will call the preprocessing_callback if it is not None, and will remove columns that are not in x_vars or y_vars.
+        """        
         if self.load_previous_results: 
             return
         # preprocess the dataset, using the preprocessing_callback if provided
@@ -56,13 +66,16 @@ class Analysis():
         if float64_cols is not None and len(float64_cols) > 0:
             logging.info(f"Converting columns {float64_cols} to float32")
             self.dataset_df[float64_cols] = self.dataset_df[float64_cols].astype('float32')
-        self.dataset_df.to_csv(path.join(self.output_directory, f'{DN.all_data}.csv'))
-        # Normalize data using minmax scaling
-        # self.dataset_df = (self.dataset_df - self.dataset_df.min()) / (self.dataset_df.max() - self.dataset_df.min())
-
+        self.dataset_df.to_csv(path.join(self.output_directory, f'{DN.all_data}.csv'), float_format='%.2f')
 
     def run_analysis(self, run_descriptive=True, run_predictive=True, run_cross_model=True): 
+        """Top level method used to run analysis. This method will call the requisite methods for each analysis object, including run_descriptive, run_predictive, and run_cross_model.
 
+        Args:
+            run_descriptive (bool, optional): Whether or not to run descriptive analysis. Defaults to True.
+            run_predictive (bool, optional): Whether or not to run predictive analysis. Defaults to True.
+            run_cross_model (bool, optional): Whether or not to run cross-model analysis. Defaults to True.
+        """        
         logging.info(f"Running analysis for {self.dataset_name}")
         if run_descriptive: 
             self.run_descriptive()
@@ -71,6 +84,9 @@ class Analysis():
         if run_cross_model: 
             self.run_cross_model()
     def run_descriptive(self):
+        """Runs descriptive analytics. This method will call the requisite methods for each analysis object, including report_stats and run_plots.
+        TODO this is relatively light right now, future work should expand this
+        """        
         # run descriptive analytics
         self.report_stats() 
         self.run_plots(plot_types=["line", "scatter"])
@@ -99,7 +115,7 @@ class Analysis():
         output_file = path.join(self.output_directory, f'{self.dataset_name}_stats.csv')
         logging.info(f"Stats for {self.dataset_name} being written to {output_file}")
 
-        stats_df.to_csv(output_file)
+        stats_df.to_csv(output_file, float_format='%.2f')
 
     def run_plots(self, plot_types):
         # run plots for each analysis object
@@ -108,18 +124,16 @@ class Analysis():
         # self._run_all_in_one_plot()
         # Run descriptive time series analysis 
 
+    @timer_decorator
     def run_predictive(self):
-        # run predictive analytics
+        """Runs predictive analytics. This method will create models for each model type in the models_dict and store the model objects in the models_dict.
+        This method will then call the requisite methods for each model object, including split_data, fit, save, plot, and report.
+        """        
         # Validate the models dictionary 
         self._validate_models()
-        # Create the test and train datasets based on the 
-        # For each model in the models dict, call the requisite model class's init method
-        # For each model in the models dict, call the requisite model class's train method
-        # For each model in the models dict, call the requisite model class's test method
-        # For each model in the models dict, call the requisite model class's predict method
-        # For each model in the models dict, call the requisite model class's save method
-
-        for model_type, all_models_for_type in self.models_dict.items():
+        this_dict = deepcopy(self.models_dict)
+        # Each type of model will have a different set of hyperparameters, so we need to create a model for each set of hyperparameters
+        for model_type, all_models_for_type in this_dict.items():
             if model_type.lower() == 'lstm' and all_models_for_type is not None and len(all_models_for_type) > 0: 
                 logging.info("Creating LSTM models")
                 for model_name, model_dict in all_models_for_type.items():
@@ -142,9 +156,10 @@ class Analysis():
                         model = LSTM(**model_args)
                         self._call_model_funcs(model)
                     else: 
-                        model = LSTM.load_from_previous_output(model_args)
+                        model = deepcopy(LSTM.load_from_previous_output(model_args))
+                        self._report_only(model)
                     # Save the model off in the models_dict
-                    self.models_dict[model_type][model_name]['model_object'] = model
+                    this_dict[model_type][model_name]['model_object'] = model
 
             elif model_type.lower() == 'gbm':
                 logging.info("Creating GBM models")
@@ -153,7 +168,7 @@ class Analysis():
                     logging.info(f"Creating GBM model {model_name}")
                     model_args = {'data' : self.dataset_df, 
                             'model_hyperparameters' : model_dict[DN.params], 
-                            'save_dir' : path.join(self.output_directory, 'LSTMSDE', model_name), 
+                            'save_dir' : path.join(self.output_directory, 'GBM', model_name), 
                             'model_name' : model_name,
                             'x_vars' : self.x_vars,
                             'y_vars' : self.y_vars,
@@ -168,12 +183,13 @@ class Analysis():
                         model = GeometricBrownianMotion(**model_args) 
                         self._call_model_funcs(model)
                     else: 
-                        model = GeometricBrownianMotion.load_from_previous_output(model_args)
+                        model = deepcopy(GeometricBrownianMotion.load_from_previous_output(model_args))
+                        self._report_only(model)
+
                     # Save the model off in the models_dict
-                    self.models_dict[model_type][model_name]['model_object'] = model
+                    this_dict[model_type][model_name]['model_object'] = model
 
             elif model_type.lower() == 'lstmsde':
-                
                 logging.info("Creating LSTM SDE models")
                 for model_name, model_dict in all_models_for_type.items():
                     # Create a LSTM SDE model
@@ -196,25 +212,28 @@ class Analysis():
                         model = LSTMSDE(**model_args) 
                         self._call_model_funcs(model)
                     else: 
-                        model = LSTMSDE.load_from_previous_output(model_args)
+                        model = deepcopy(LSTMSDE.load_from_previous_output(model_args))
+                        self._report_only(model)
+
                     # Save the model off in the models_dict
-                    self.models_dict[model_type][model_name]['model_object'] = model
+                    this_dict[model_type][model_name]['model_object'] = model
 
             else:   
                 logging.error(f"Model {model_type} not implemented yet")
+
+        self.models_dict = this_dict
     def run_cross_model(self):
+        """Method used to run cross-model analysis. This method will combine the results of all models in the models_dict
+        and write a report for each model type and for all models. The results will be plotted and written to the output directory.
+        This is intended to be a top-level rollup for all models, and will be called after the run_predictive method for all models
+        """        
         # Create the cross-model directory 
         cross_model_dir = path.join(self.output_directory, 'cross_model')
         # Make all the submodel types. Pull only the types that we've defined from the modeule. This ignores special variables like __name__ and __doc__
         model_types = [v for k, v in vars(MT).items() if isinstance(v, str) and not v.startswith('__') and not callable(v) and v is not None and not v.startswith('<') and not k.startswith('__')]
-        
-        # Create the cross model directory
-        #model_dict = Model._get_empty_datadict_struct()
-        #models_dict = {model_type: copy.deepcopy(model_dict) for model_type in model_types}
-
-
         model_type_dirs = [path.join(cross_model_dir, mt) for mt in model_types + ['all']]
         [makedirs(mt) for mt in model_type_dirs if not path.exists(mt)]
+
         # For each model type, combine the results of the models in that type and write a report
         for model_type_dir, model_type in zip(model_type_dirs, model_types):
             # Get the models for the model type
@@ -224,7 +243,6 @@ class Analysis():
                 continue
             # Get the model objects for the model type
             model_name_with_model_obj  = {model_name: model_dict['model_object'] for model_name, model_dict in model_type_models.items()}
-            #model_name_with_hyperparams  = {model_name: model_dict['model_hyperparameters'] for model_name, model_dict in model_type_models.items()}
                                        
             if model_name_with_model_obj is None or len(model_name_with_model_obj) == 0:
                 logging.info(f"No model objects for model type {model_type}")
@@ -238,6 +256,8 @@ class Analysis():
         all_models = {}
         for model_type, model_type_dict in self.models_dict.items():
             all_models.update((model_name, model_dict['model_object']) for model_name, model_dict in model_type_dict.items())
+
+        # Plot the results and write the reports for all models
         self._plot_cross_model_results(all_models, path.join(cross_model_dir, 'all'), 'all')
         self._write_cross_model_report(all_models, path.join(cross_model_dir, 'all'), 'all')
     
@@ -247,9 +267,9 @@ class Analysis():
         TODO (break this out for multiple y vars and multiple x vars)
 
         Args:
-            model_dict (_type_): _description_
-            output_dir (_type_): _description_
-            model_type (_type_): _description_
+            model_dict (dict): Dictionary of model objects, where the key is the model name and the value is the model object
+            output_dir (str, path-like): The output directory to write the report to 
+            model_type (str): The model type, which can be a global model type or "all" 
         """        
         # Assume that the first model objects types in data dict match all the others 
         first_model = list(model_dict.keys())[0]
@@ -323,13 +343,16 @@ class Analysis():
                           save_png=self.save_png,
                           save_html=self.save_html)
 
-
-            # Now plot the data 
-
-
-
-
     def _write_cross_model_report(self, model_dict, output_dir, model_type):
+        """Writes a report for multiple models of a given model type, which may be of global model types, 
+        or can be "all." This provides a summary of the performance metrics for each model, which can be 
+        found in the model output directory
+
+        Args:
+            model_dict (dict): Dictionary of model objects, where the key is the model name and the value is the model object
+            output_dir (str, path-like): The output directory to write the report to 
+            model_type (str): The model type, which can be a global model type or "all" 
+        """        
         # Assume that the first model objects types in data dict match all the others 
         first_model = list(model_dict.keys())[0]
         # For the plots for all models, only pull the first processed responses, since that will be a lot of traces otherwise
@@ -360,17 +383,22 @@ class Analysis():
             # Create a dictionary to store the plots for each datatype
             if k == 'all_data':
                 continue
-            for modelkey, modelvals in model_dict.items():
-                this_data = modelvals.model_performance[k]
-                # Make a multiindex dataframe where the first index is the modelname and the second is the existing index 
-                this_data['model_name'] = modelkey
 
-                this_data.set_index(['model_name'], append=True, inplace=True)
+            for modelkey, modelvals in model_dict.items():
+                this_data = modelvals.model_performance[k].copy(deep=True)
+                #this_hyperparams = modelvals.model_hyperparameters
+                this_data = this_data[model_dict[modelkey].model_responses['proc']]
+                # Make a multiindex dataframe where the first index is the modelname and the second is the existing index 
+                this_data['model_type'] = model_dict[modelkey].__class__.__name__  
+                this_data['model_name'] = modelkey
+                this_data = this_data.reset_index().pivot(index=['model_type', 'model_name'], columns='index', values=model_dict[modelkey].model_responses['proc'])
+                #this_hyperparams = this_data.reset_index().pivot(index=['model_type', 'model_name'], columns='index', values=model_dict[modelkey].model_responses['proc'])
+
                 if performance_struct[k] is None:
                     performance_struct[k] = this_data
                 else: 
                     performance_struct[k] = pd.concat([performance_struct[k], this_data])
-
+        #import pdb; pdb.set_trace()
         # Finalize the plot for each plot in figs 
         for k, df in performance_struct.items():
             if df is None: 
@@ -380,18 +408,55 @@ class Analysis():
             if not path.exists(path.join(output_dir, MS.perf)):
                 makedirs(path.join(output_dir, MS.perf))
             logging.info(f"Writing performance metrics for {k} to {output_file}")
-            df.to_csv(output_file)
+            # Reindex the csv so the model name is the first column, and R2, MAE, and RMSE are columns 
+            
+            df.to_csv(output_file, float_format='%.2e')
 
+        # Build the hyperparameters dataframe
+        hyperparams = {model_type: {model_name: model_dict[model_name].model_hyperparameters for model_name in model_dict}}
+        params_list = []
+        for model_type, model_type_params in hyperparams.items():
+            df = pd.DataFrame.from_dict(model_type_params, orient='index')
+            df['model_type'] = model_type
+            df.index.name = 'model_name'
+            df = df.reset_index().set_index(['model_type', 'model_name'])
+            params_list.append(pd.DataFrame.from_dict(model_type_params, orient='index'))
+        params_df = pd.concat(params_list)
+        if not path.exists(path.join(output_dir, DN.params)):
+            makedirs(path.join(output_dir, DN.params))
+        params_df.to_csv(path.join(output_dir, DN.params, 'hyperparameters.csv'), float_format='%.2e')
+
+    @timer_decorator
     def _call_model_funcs(self, model):
         """Helper function to call all model functions
         Args:
             model (_type_): _description_
         """        
-        model.split_data()
-        model.fit()
-        model.save()
-        model.plot()
-        model.report()
+        try:
+            model.split_data()
+            model.fit()
+            model.save()
+            model.plot()
+            model.report()
+            return True
+        except Exception as e:
+            logging.error(f"Error occurred during analysis for {model.model_name}: {e}")
+            return False
+    def _report_only(self, model):
+        """Helper function to call all model functions
+        Args:
+            model (_type_): _description_
+        """        
+        try:
+            # model.split_data()
+            # model.fit()
+            # model.save()
+            # model.plot()
+            #model.report()
+            return True
+        except Exception as e:
+            logging.error(f"Error occurred during analysis for {model.model_name}: {e}")
+            return False
     def _validate_models(self):
         # Validate the models dictionary. Make sure that the specified models are models 
         # that exist in pytorch, sklearn, or other libraries that we are using

@@ -7,10 +7,8 @@ from os import path, makedirs
 import pickle
 import pandas as pd 
 import numpy as np
-import copy
-from scaler import Scaler
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
-from sklearn.preprocessing import StandardScaler, MinMaxScaler
+from sklearn.preprocessing import MinMaxScaler
 
 
 class Model(): 
@@ -120,7 +118,7 @@ class Model():
         # Build model response raw list from y_vars with model name and number of sims appended
         self.model_responses[DN.raw] = [f'{y_var}_{i}' for y_var in self.y_vars for i in range(self.model_hyperparameters['num_sims'])]
         # Build model response proc list from y_vars
-        proc_suffixes = ['mean', 'min_mean_model', 'max_mean_model', 'min_max_mean_avg']
+        proc_suffixes = ['mean'] #, 'min_mean_model', 'max_mean_model', 'min_max_mean_avg']
         self.model_responses[DN.proc] = []
         [self.model_responses[DN.proc].append(f'{y_var}_{suffix}') for y_var in self.y_vars for suffix in proc_suffixes]
     def _normalize_data_dict(self, data_dict, y_col):
@@ -244,19 +242,19 @@ class Model():
             # Add the column to the list of processed responses
             
             processed_repsonses.append(f'{y_var}_mean')             # Add the mean of the model responses
-            processed_repsonses.append(f'{y_var}_median')           # Add the median of the model responses
-            processed_repsonses.append(f'{y_var}_min_mean_model')   # Add the model with the minimum mean
-            processed_repsonses.append(f'{y_var}_max_mean_model')   # Add the model with the maximium mean
-            processed_repsonses.append(f'{y_var}_min_max_mean_avg') # Add the average of the minimum and maximum mean
+            #processed_repsonses.append(f'{y_var}_median')           # Add the median of the model responses
+            #processed_repsonses.append(f'{y_var}_min_mean_model')   # Add the model with the minimum mean
+            #processed_repsonses.append(f'{y_var}_max_mean_model')   # Add the model with the maximium mean
+            #processed_repsonses.append(f'{y_var}_min_max_mean_avg') # Add the average of the minimum and maximum mean
 
             response_data[f'{y_var}_mean'] = response_data[[f'{y_var}_{i}' for i in range(self.model_hyperparameters['num_sims'])]].mean(axis=1)
-            response_data[f'{y_var}_median'] = response_data[[f'{y_var}_{i}' for i in range(self.model_hyperparameters['num_sims'])]].median(axis=1)
+            #response_data[f'{y_var}_median'] = response_data[[f'{y_var}_{i}' for i in range(self.model_hyperparameters['num_sims'])]].median(axis=1)
             # Calculate the model columns that have the minimum and maximum mean
-            min_mean_col = response_data[[f'{y_var}_{i}' for i in range(self.model_hyperparameters['num_sims'])]].mean().idxmin()
-            max_mean_col = response_data[[f'{y_var}_{i}' for i in range(self.model_hyperparameters['num_sims'])]].mean().idxmax()
-            response_data[f'{y_var}_min_mean_model'] = response_data[min_mean_col]
-            response_data[f'{y_var}_max_mean_model'] = response_data[max_mean_col]
-            response_data[f'{y_var}_min_max_mean_avg'] = (response_data[f'{y_var}_min_mean_model'] + response_data[f'{y_var}_max_mean_model']) / 2
+            #min_mean_col = response_data[[f'{y_var}_{i}' for i in range(self.model_hyperparameters['num_sims'])]].mean().idxmin()
+            #max_mean_col = response_data[[f'{y_var}_{i}' for i in range(self.model_hyperparameters['num_sims'])]].mean().idxmax()
+            #response_data[f'{y_var}_min_mean_model'] = response_data[min_mean_col]
+            #response_data[f'{y_var}_max_mean_model'] = response_data[max_mean_col]
+            #response_data[f'{y_var}_min_max_mean_avg'] = (response_data[f'{y_var}_min_mean_model'] + response_data[f'{y_var}_max_mean_model']) / 2
   
         return processed_repsonses, response_data
         #self.train_data_fit_scaled[model_cols_to_scale] = self.scaler.unscale_data(self.train_data_fit[model_cols_to_scale], model_cols_to_scale)
@@ -270,11 +268,11 @@ class Model():
         if data_type in [DN.train_data, DN.test_data] + self.evaluation_data_names:
             try:
                 all_data = {col: self.data_dict[norm][data_type][self.x_vars + [col]] for col in self.y_vars + self.model_responses[DN.proc] + self.model_responses[DN.raw]}
-            except KeyError as e:
+            except KeyError:
                 logging.error(f"Dataframe {data_type} does not exist in the data dictionary or does not have expected columns")
                 return
         else: 
-            import pdb; pdb.set_trace()
+            #import pdb; pdb.set_trace()
             raise NotImplementedError(f"Plot fit not implemented for data type {data_type}.")
         # Rename the columns with {y_var}_{model_name}_{seed} to be {y_var}. This is so we can pass the 
         for key in all_data.keys():
@@ -387,7 +385,7 @@ class Model():
             logging.error('Train Data Fit Cannot be None')
         if data_dict[DN.train_data] is not None:
             logging.debug('Calculating model performance for test data')
-            test_performance = self._calculate_model_performance(data_dict[DN.train_data])
+            test_performance = self._calculate_model_performance(data_dict[DN.test_data])
             self.model_performance['test'] = test_performance
         else:
             logging.error('Test Data Fit Cannot be None')
@@ -443,9 +441,9 @@ class Model():
         # Calculate the R2
         metrics['R2'] = r2_score(y_data, model_data)
         # Calculate the confidence-weighted-calibration error 
-        metrics['CWCE'] = 0
-        metrics['AIC'] = 0
-        metrics['BIC'] = 0
+        #metrics['CWCE'] = 0
+        #metrics['AIC'] = 0
+        #metrics['BIC'] = 0
         return metrics
 
     def _write_output_csvs(self):
@@ -466,27 +464,27 @@ class Model():
 
         for k, v in self.data_dict[DN.normalized].items():
             # Write the data, with the model data to the predicted directory
-            pd.DataFrame(v).to_csv(path.join(norm_pred_dir, f'{k}.csv'))
+            pd.DataFrame(v).to_csv(path.join(norm_pred_dir, f'{k}.csv'), float_format='%.2e')
             # Write just the x, y vars to the data directory
-            pd.DataFrame(v[self.x_vars + self.y_vars]).to_csv(path.join(norm_data_dir, f'{k}.csv'))
+            pd.DataFrame(v[self.x_vars + self.y_vars]).to_csv(path.join(norm_data_dir, f'{k}.csv'), float_format='%.2e')
 
         for k, v in self.data_dict[DN.not_normalized].items():
             # Write the data, with the model data to the predicted directory
             pd.DataFrame(v).to_csv(path.join(not_norm_pred_dir, f'{k}.csv'))
             # Write just the x, y vars to the data directory
-            pd.DataFrame(v[self.x_vars + self.y_vars]).to_csv(path.join(norm_data_dir, f'{k}.csv'))
+            pd.DataFrame(v[self.x_vars + self.y_vars]).to_csv(path.join(norm_data_dir, f'{k}.csv'), float_format='%.2e')
 
 
         # Write the model performance to csv
         for k, v in self.model_performance.items():
-            v.to_csv(path.join(perf_dir, f'{k}.csv'))
+            v.to_csv(path.join(perf_dir, f'{k}.csv'), float_format='%.2e')
         # Write the model hyperparameters to csv
         try:
-            pd.DataFrame(self.model_hyperparameters, index=[0]).to_csv(path.join(params_dir, f'{DN.params}.csv'))
+            pd.DataFrame(self.model_hyperparameters, index=[0]).to_csv(path.join(params_dir, f'{DN.params}.csv'), float_format='%.2e')
         except Exception as e:
             try:
                 logging.warning(f"Error writing model hyperparameters to csv: {e}, trying again")
-                pd.DataFrame(self.model_hyperparameters).to_csv(path.join(params_dir, f'{DN.params}.csv'))
+                pd.DataFrame(self.model_hyperparameters).to_csv(path.join(params_dir, f'{DN.params}.csv'), float_format='%.2e')
             except Exception as e2:
                 logging.error(f"Error writing model hyperparameters to csv: {e2}")
     def _validate_hyperparameters(self):

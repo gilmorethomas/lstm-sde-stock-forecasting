@@ -2,9 +2,9 @@ from dateutil.relativedelta import relativedelta
 from pandas import to_datetime
 from project_globals import DataNames as DN 
 def create_test_train_split_params(
-    start_date_train='2010-01-01', # FOR TESTING 
-    start_date_test='2020-10-31', # FOR TESTING 
-    evaluation_start_date='2020-12-31' # FOR TESTING
+    start_date_train='2009-01-01', # FOR TESTING 
+    start_date_test='2017-01-02', # FOR TESTING 
+    evaluation_start_date='2019-01-02' # FOR TESTING
     #start_date_train='2009-01-01', # USE THIS, ABOVE IS FOR TESTING 
     #start_date_test='2017-01-02', # USE THIS, ABOVE IS FOR TESTING 
     #evaluation_start_date='2019-01-01' # USE THIS, ABOVE IS FOR TESTING 
@@ -68,24 +68,24 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
                 },
             },
 
-            'gbm_calculated_20_days' : {
-                DN.params: {
-                    'calculate_mu' : True, 
-                    'calculate_sigma': True,
-                    'window_size': 20,
-                    'dt' : 1, # day 
-                    'num_sims' : 5
-                },
-            },
-            'gbm_calculated_50_days' : {
-                DN.params: {
-                    'calculate_mu' : True, 
-                    'calculate_sigma': True,
-                    'window_size': 50,
-                    'dt' : 1,
-                    'num_sims' : 5
-                },
-            }  ,
+            # 'gbm_calculated_20_days' : {
+            #     DN.params: {
+            #         'calculate_mu' : True, 
+            #         'calculate_sigma': True,
+            #         'window_size': 20,
+            #         'dt' : 1, # day 
+            #         'num_sims' : 5
+            #     },
+            # },
+            # 'gbm_calculated_50_days' : {
+            #     DN.params: {
+            #         'calculate_mu' : True, 
+            #         'calculate_sigma': True,
+            #         'window_size': 50,
+            #         'dt' : 1,
+            #         'num_sims' : 5
+            #     },
+            # }  ,
             'gbm_calculated_500_days' : {
                 DN.params: {
                     'calculate_mu' : True, 
@@ -131,56 +131,10 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
                     'num_sims' : 5
                 },
             }  ,
-            # 'GBM Steady Large Increase' : {
-            #     DN.params: {
-            #         'calculate_mu' : False, 
-            #         'calculate_sigma': False, 
-            #         'mu': 0.0001, 
-            #         'sigma': 0.1,
-            #         'num_sims' : 5
-            #     },
-            # },
-            # 'GBM Unsteady 1' : {
-            #     DN.params: {
-            #         'calculate_mu' : False, 
-            #         'calculate_sigma': False, 
-            #         'mu': 0.1, 
-            #         'sigma': 0.05,
-            #         'num_sims' : 5
-            #     },
-            # },
-            # 'GBM Unsteady 2' : {
-            #     DN.params: {
-            #         'calculate_mu' : False, 
-            #         'calculate_sigma': False, 
-            #         'mu': 0.1, 
-            #         'sigma': 0.0,
-            #         'num_sims' : 5
-            #     },
-            # }
         }
     if lstm_sde:
         models_dict["LSTMSDE"] = {
-            'lstm_sde_1' : {
-                DN.params: {
-                    'num_sims' : 1,
-                    'num_epochs' : 2, 
-                    'time_steps' : 10,
-                    'batch_size' : 32,
-                    'shuffle' : True,
-                    'd_lstm' : 64, # dimension of the LSTM network
-                    'd_lat' : 1, # dimension of the latent variable
-                    'd_input' : 1, # dimension of the input. TODO increasing this breaks things... 
-                    'd_hidden' : 1, # dimensionality of the hidden state of the LSTM. Determines how much information the network can store about the past 
-                    'N' : 50, # number of latent variable paths to simulate )
-                    't_sde' : 1, # time step for SDE
-                    'n_sde' : 100, # number of latent variables in each latent variable path (i.e num days to simulate for each path)
-                    'learning_rate' : 10e-2, # learning rate for the optimizer
-                    'loss' : 'mean_squared_error',
-                    'optimizer' : 'adam' # which optimizer to use. Options are 'adam' and 'sgd'
-                },
-            },
-            'lstm_sde_2' : {
+            'lstm_sde_baseline' : {
                 DN.params: {
                     'num_sims' : 1,
                     'num_epochs' : 5, 
@@ -190,7 +144,7 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
                     'd_lstm' : 64, # dimension of the LSTM network
                     'd_lat' : 1, # dimension of the latent variable
                     'd_input' : 1, # dimension of the input. TODO increasing this breaks things... 
-                    'd_hidden' : 1, # dimensionality of the hidden state of the LSTM. Determines how much information the network can store about the past 
+                    'd_hidden' : 16, # dimensionality of the hidden state of the LSTM. Determines how much information the network can store about the past 
                     'N' : 50, # number of latent variable paths to simulate )
                     't_sde' : 1, # time step for SDE
                     'n_sde' : 100, # number of latent variables in each latent variable path (i.e num days to simulate for each path)
@@ -199,17 +153,17 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
                     'optimizer' : 'adam' # which optimizer to use. Options are 'adam' and 'sgd'
                 },
             },
-            'lstm_sde_3' : {
+            'lstm_sde_learningrate1' : {
                 DN.params: {
                     'num_sims' : 1,
-                    'num_epochs' : 5, 
+                    'num_epochs' : 10, 
                     'time_steps' : 10,
                     'batch_size' : 32,
                     'shuffle' : True,
                     'd_lstm' : 64, # dimension of the LSTM network
                     'd_lat' : 1, # dimension of the latent variable
                     'd_input' : 1, # dimension of the input. TODO increasing this breaks things... 
-                    'd_hidden' : 1, # dimensionality of the hidden state of the LSTM. Determines how much information the network can store about the past 
+                    'd_hidden' : 16, # dimensionality of the hidden state of the LSTM. Determines how much information the network can store about the past 
                     'N' : 50, # number of latent variable paths to simulate )
                     't_sde' : 1, # time step for SDE
                     'n_sde' : 100, # number of latent variables in each latent variable path (i.e num days to simulate for each path)
@@ -218,10 +172,29 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
                     'optimizer' : 'adam' # which optimizer to use. Options are 'adam' and 'sgd'
                 },
             },
-            'lstm_sde_4' : {
+            'lstm_sde_learningrate2' : {
                 DN.params: {
                     'num_sims' : 1,
-                    'num_epochs' : 2, 
+                    'num_epochs' : 10, 
+                    'time_steps' : 10,
+                    'batch_size' : 32,
+                    'shuffle' : True,
+                    'd_lstm' : 64, # dimension of the LSTM network
+                    'd_lat' : 1, # dimension of the latent variable
+                    'd_input' : 1, # dimension of the input. TODO increasing this breaks things... 
+                    'd_hidden' : 16, # dimensionality of the hidden state of the LSTM. Determines how much information the network can store about the past 
+                    'N' : 50, # number of latent variable paths to simulate )
+                    't_sde' : 1, # time step for SDE
+                    'n_sde' : 100, # number of latent variables in each latent variable path (i.e num days to simulate for each path)
+                    'learning_rate' : 10e-4, # learning rate for the optimizer
+                    'loss' : 'mean_squared_error',
+                    'optimizer' : 'adam' # which optimizer to use. Options are 'adam' and 'sgd'
+                },
+            },
+            'lstm_sde_hidden1' : {
+                DN.params: {
+                    'num_sims' : 1,
+                    'num_epochs' : 10, 
                     'time_steps' : 30,
                     'batch_size' : 32,
                     'shuffle' : True,
@@ -237,19 +210,457 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
                     'optimizer' : 'adam' # which optimizer to use. Options are 'adam' and 'sgd'
                 },
             },
-
+            'lstm_sde_hidden2' : {
+                DN.params: {
+                    'num_sims' : 1,
+                    'num_epochs' : 10, 
+                    'time_steps' : 30,
+                    'batch_size' : 32,
+                    'shuffle' : True,
+                    'd_lstm' : 64, # dimension of the LSTM network
+                    'd_lat' : 1, # dimension of the latent variable
+                    'd_input' : 1, # dimension of the input. TODO increasing this breaks things... 
+                    'd_hidden' : 2, # dimensionality of the hidden state of the LSTM. Determines how much information the network can store about the past 
+                    'N' : 100, # number of latent variable paths to simulate )
+                    't_sde' : 1, # time step for SDE
+                    'n_sde' : 100, # number of latent variables in each latent variable path (i.e num days to simulate for each path)
+                    'learning_rate' : 10e-2, # learning rate for the optimizer
+                    'loss' : 'mean_squared_error',
+                    'optimizer' : 'adam' # which optimizer to use. Options are 'adam' and 'sgd'
+                },
+            },
+            'lstm_sde_hidden3' : {
+                DN.params: {
+                    'num_sims' : 1,
+                    'num_epochs' : 10, 
+                    'time_steps' : 30,
+                    'batch_size' : 32,
+                    'shuffle' : True,
+                    'd_lstm' : 64, # dimension of the LSTM network
+                    'd_lat' : 1, # dimension of the latent variable
+                    'd_input' : 1, # dimension of the input. TODO increasing this breaks things... 
+                    'd_hidden' : 5, # dimensionality of the hidden state of the LSTM. Determines how much information the network can store about the past 
+                    'N' : 100, # number of latent variable paths to simulate )
+                    't_sde' : 1, # time step for SDE
+                    'n_sde' : 100, # number of latent variables in each latent variable path (i.e num days to simulate for each path)
+                    'learning_rate' : 10e-2, # learning rate for the optimizer
+                    'loss' : 'mean_squared_error',
+                    'optimizer' : 'adam' # which optimizer to use. Options are 'adam' and 'sgd'
+                },
+            },
+            'lstm_sde_hidden4' : {
+                DN.params: {
+                    'num_sims' : 1,
+                    'num_epochs' : 10, 
+                    'time_steps' : 30,
+                    'batch_size' : 32,
+                    'shuffle' : True,
+                    'd_lstm' : 64, # dimension of the LSTM network
+                    'd_lat' : 1, # dimension of the latent variable
+                    'd_input' : 1, # dimension of the input. TODO increasing this breaks things... 
+                    'd_hidden' : 5, # dimensionality of the hidden state of the LSTM. Determines how much information the network can store about the past 
+                    'N' : 100, # number of latent variable paths to simulate )
+                    't_sde' : 1, # time step for SDE
+                    'n_sde' : 100, # number of latent variables in each latent variable path (i.e num days to simulate for each path)
+                    'learning_rate' : 10e-2, # learning rate for the optimizer
+                    'loss' : 'mean_squared_error',
+                    'optimizer' : 'adam' # which optimizer to use. Options are 'adam' and 'sgd'
+                },
+            },
+            'lstm_sde_hidden5' : {
+                DN.params: {
+                    'num_sims' : 1,
+                    'num_epochs' : 10, 
+                    'time_steps' : 30,
+                    'batch_size' : 32,
+                    'shuffle' : True,
+                    'd_lstm' : 64, # dimension of the LSTM network
+                    'd_lat' : 1, # dimension of the latent variable
+                    'd_input' : 1, # dimension of the input. TODO increasing this breaks things... 
+                    'd_hidden' : 10, # dimensionality of the hidden state of the LSTM. Determines how much information the network can store about the past 
+                    'N' : 100, # number of latent variable paths to simulate )
+                    't_sde' : 1, # time step for SDE
+                    'n_sde' : 100, # number of latent variables in each latent variable path (i.e num days to simulate for each path)
+                    'learning_rate' : 10e-2, # learning rate for the optimizer
+                    'loss' : 'mean_squared_error',
+                    'optimizer' : 'adam' # which optimizer to use. Options are 'adam' and 'sgd'
+                },
+            },
+            'lstm_sde_dlstm1' : {
+                DN.params: {
+                    'num_sims' : 1,
+                    'num_epochs' : 5, 
+                    'time_steps' : 10,
+                    'batch_size' : 32,
+                    'shuffle' : True,
+                    'd_lstm' : 4, # dimension of the LSTM network
+                    'd_lat' : 1, # dimension of the latent variable
+                    'd_input' : 1, # dimension of the input. TODO increasing this breaks things... 
+                    'd_hidden' : 16, # dimensionality of the hidden state of the LSTM. Determines how much information the network can store about the past 
+                    'N' : 50, # number of latent variable paths to simulate )
+                    't_sde' : 1, # time step for SDE
+                    'n_sde' : 100, # number of latent variables in each latent variable path (i.e num days to simulate for each path)
+                    'learning_rate' : 10e-2, # learning rate for the optimizer
+                    'loss' : 'mean_squared_error',
+                    'optimizer' : 'adam' # which optimizer to use. Options are 'adam' and 'sgd'
+                },
+            },
+            'lstm_sde_dlstm2' : {
+                DN.params: {
+                    'num_sims' : 1,
+                    'num_epochs' : 5, 
+                    'time_steps' : 10,
+                    'batch_size' : 32,
+                    'shuffle' : True,
+                    'd_lstm' : 8, # dimension of the LSTM network
+                    'd_lat' : 1, # dimension of the latent variable
+                    'd_input' : 1, # dimension of the input. TODO increasing this breaks things... 
+                    'd_hidden' : 16, # dimensionality of the hidden state of the LSTM. Determines how much information the network can store about the past 
+                    'N' : 50, # number of latent variable paths to simulate )
+                    't_sde' : 1, # time step for SDE
+                    'n_sde' : 100, # number of latent variables in each latent variable path (i.e num days to simulate for each path)
+                    'learning_rate' : 10e-2, # learning rate for the optimizer
+                    'loss' : 'mean_squared_error',
+                    'optimizer' : 'adam' # which optimizer to use. Options are 'adam' and 'sgd'
+                },
+            },
+            'lstm_sde_dlstm3' : {
+                DN.params: {
+                    'num_sims' : 1,
+                    'num_epochs' : 5, 
+                    'time_steps' : 10,
+                    'batch_size' : 32,
+                    'shuffle' : True,
+                    'd_lstm' : 8, # dimension of the LSTM network
+                    'd_lat' : 1, # dimension of the latent variable
+                    'd_input' : 1, # dimension of the input. TODO increasing this breaks things... 
+                    'd_hidden' : 16, # dimensionality of the hidden state of the LSTM. Determines how much information the network can store about the past 
+                    'N' : 50, # number of latent variable paths to simulate )
+                    't_sde' : 1, # time step for SDE
+                    'n_sde' : 100, # number of latent variables in each latent variable path (i.e num days to simulate for each path)
+                    'learning_rate' : 10e-2, # learning rate for the optimizer
+                    'loss' : 'mean_squared_error',
+                    'optimizer' : 'adam' # which optimizer to use. Options are 'adam' and 'sgd'
+                },
+            },
+            'lstm_sde_dlstm4' : {
+                DN.params: {
+                    'num_sims' : 1,
+                    'num_epochs' : 5, 
+                    'time_steps' : 10,
+                    'batch_size' : 32,
+                    'shuffle' : True,
+                    'd_lstm' : 8, # dimension of the LSTM network
+                    'd_lat' : 1, # dimension of the latent variable
+                    'd_input' : 1, # dimension of the input. TODO increasing this breaks things... 
+                    'd_hidden' : 32, # dimensionality of the hidden state of the LSTM. Determines how much information the network can store about the past 
+                    'N' : 50, # number of latent variable paths to simulate )
+                    't_sde' : 1, # time step for SDE
+                    'n_sde' : 100, # number of latent variables in each latent variable path (i.e num days to simulate for each path)
+                    'learning_rate' : 10e-2, # learning rate for the optimizer
+                    'loss' : 'mean_squared_error',
+                    'optimizer' : 'adam' # which optimizer to use. Options are 'adam' and 'sgd'
+                },
+            },
+            'lstm_sde_dlstmhidden1' : {
+                DN.params: {
+                    'num_sims' : 1,
+                    'num_epochs' : 5, 
+                    'time_steps' : 10,
+                    'batch_size' : 32,
+                    'shuffle' : True,
+                    'd_lstm' : 32, # dimension of the LSTM network
+                    'd_lat' : 1, # dimension of the latent variable
+                    'd_input' : 1, # dimension of the input. TODO increasing this breaks things... 
+                    'd_hidden' : 8, # dimensionality of the hidden state of the LSTM. Determines how much information the network can store about the past 
+                    'N' : 50, # number of latent variable paths to simulate )
+                    't_sde' : 1, # time step for SDE
+                    'n_sde' : 100, # number of latent variables in each latent variable path (i.e num days to simulate for each path)
+                    'learning_rate' : 10e-2, # learning rate for the optimizer
+                    'loss' : 'mean_squared_error',
+                    'optimizer' : 'adam' # which optimizer to use. Options are 'adam' and 'sgd'
+                },
+            },
+            'lstm_sde_dlstmhidden2' : {
+                DN.params: {
+                    'num_sims' : 1,
+                    'num_epochs' : 5, 
+                    'time_steps' : 10,
+                    'batch_size' : 32,
+                    'shuffle' : True,
+                    'd_lstm' : 16, # dimension of the LSTM network
+                    'd_lat' : 1, # dimension of the latent variable
+                    'd_input' : 1, # dimension of the input. TODO increasing this breaks things... 
+                    'd_hidden' : 4, # dimensionality of the hidden state of the LSTM. Determines how much information the network can store about the past 
+                    'N' : 50, # number of latent variable paths to simulate )
+                    't_sde' : 1, # time step for SDE
+                    'n_sde' : 100, # number of latent variables in each latent variable path (i.e num days to simulate for each path)
+                    'learning_rate' : 10e-2, # learning rate for the optimizer
+                    'loss' : 'mean_squared_error',
+                    'optimizer' : 'adam' # which optimizer to use. Options are 'adam' and 'sgd'
+                },
+            },
+            'lstm_sde_timesteps1' : {
+                DN.params: {
+                    'num_sims' : 1,
+                    'num_epochs' : 5, 
+                    'time_steps' : 5,
+                    'batch_size' : 32,
+                    'shuffle' : True,
+                    'd_lstm' : 64, # dimension of the LSTM network
+                    'd_lat' : 1, # dimension of the latent variable
+                    'd_input' : 1, # dimension of the input. TODO increasing this breaks things... 
+                    'd_hidden' : 16, # dimensionality of the hidden state of the LSTM. Determines how much information the network can store about the past 
+                    'N' : 50, # number of latent variable paths to simulate )
+                    't_sde' : 1, # time step for SDE
+                    'n_sde' : 100, # number of latent variables in each latent variable path (i.e num days to simulate for each path)
+                    'learning_rate' : 10e-2, # learning rate for the optimizer
+                    'loss' : 'mean_squared_error',
+                    'optimizer' : 'adam' # which optimizer to use. Options are 'adam' and 'sgd'
+                },
+            },
+            'lstm_sde_timesteps2' : {
+                DN.params: {
+                    'num_sims' : 1,
+                    'num_epochs' : 5, 
+                    'time_steps' : 30,
+                    'batch_size' : 32,
+                    'shuffle' : True,
+                    'd_lstm' : 64, # dimension of the LSTM network
+                    'd_lat' : 1, # dimension of the latent variable
+                    'd_input' : 1, # dimension of the input. TODO increasing this breaks things... 
+                    'd_hidden' : 16, # dimensionality of the hidden state of the LSTM. Determines how much information the network can store about the past 
+                    'N' : 50, # number of latent variable paths to simulate )
+                    't_sde' : 1, # time step for SDE
+                    'n_sde' : 100, # number of latent variables in each latent variable path (i.e num days to simulate for each path)
+                    'learning_rate' : 10e-2, # learning rate for the optimizer
+                    'loss' : 'mean_squared_error',
+                    'optimizer' : 'adam' # which optimizer to use. Options are 'adam' and 'sgd'
+                },
+            },
+            'lstm_sde_timesteps3' : {
+                DN.params: {
+                    'num_sims' : 1,
+                    'num_epochs' : 5, 
+                    'time_steps' : 60,
+                    'batch_size' : 32,
+                    'shuffle' : True,
+                    'd_lstm' : 64, # dimension of the LSTM network
+                    'd_lat' : 1, # dimension of the latent variable
+                    'd_input' : 1, # dimension of the input. TODO increasing this breaks things... 
+                    'd_hidden' : 16, # dimensionality of the hidden state of the LSTM. Determines how much information the network can store about the past 
+                    'N' : 50, # number of latent variable paths to simulate )
+                    't_sde' : 1, # time step for SDE
+                    'n_sde' : 100, # number of latent variables in each latent variable path (i.e num days to simulate for each path)
+                    'learning_rate' : 10e-2, # learning rate for the optimizer
+                    'loss' : 'mean_squared_error',
+                    'optimizer' : 'adam' # which optimizer to use. Options are 'adam' and 'sgd'
+                },
+            },
+            'lstm_sde_timesteps4' : {
+                DN.params: {
+                    'num_sims' : 1,
+                    'num_epochs' : 5, 
+                    'time_steps' : 180,
+                    'batch_size' : 32,
+                    'shuffle' : True,
+                    'd_lstm' : 64, # dimension of the LSTM network
+                    'd_lat' : 1, # dimension of the latent variable
+                    'd_input' : 1, # dimension of the input. TODO increasing this breaks things... 
+                    'd_hidden' : 16, # dimensionality of the hidden state of the LSTM. Determines how much information the network can store about the past 
+                    'N' : 50, # number of latent variable paths to simulate )
+                    't_sde' : 1, # time step for SDE
+                    'n_sde' : 100, # number of latent variables in each latent variable path (i.e num days to simulate for each path)
+                    'learning_rate' : 10e-2, # learning rate for the optimizer
+                    'loss' : 'mean_squared_error',
+                    'optimizer' : 'adam' # which optimizer to use. Options are 'adam' and 'sgd'
+                },
+            },
         } 
 
     if lstm:
         # TODO allow test train split to also be a callback to a function, so we can filter specifically on the date
         # See valid model arguments documentation https://www.tensorflow.org/api_docs/python/tf/keras/layers/LSTM
         models_dict["LSTM"] = {
-            'lstm_5node_1' : {
+            # Baseline
+            'lstm_5node_baseline' : {
                 'units' : 1,
                 'library_hyperparameters' : {
                     'activation' : 'relu',
                     'recurrent_activation' : 'sigmoid',
-                    'num_sims' : 1
+                    'num_sims' : 1,
+                    'num_layers': 5,
+                    'epochs': 10,
+                    'hidden_nodes': 25,
+                    'time_steps': 25,
+                }
+            },
+            'lstm_5node_epochtest1' : {
+                'units' : 1,
+                'library_hyperparameters' : {
+                    'activation' : 'relu',
+                    'recurrent_activation' : 'sigmoid',
+                    'num_sims' : 1,
+                    'num_layers': 5,
+                    'epochs': 5,
+                    'hidden_nodes': 25,
+                    'time_steps': 10,
+                }
+            },
+            'lstm_5node_epochtest2' : {
+                'units' : 1,
+                'library_hyperparameters' : {
+                    'activation' : 'relu',
+                    'recurrent_activation' : 'sigmoid',
+                    'num_sims' : 1,
+                    'num_layers': 5,
+                    'epochs': 15,
+                    'hidden_nodes': 25,
+                    'time_steps': 10,
+                }
+            },
+            'lstm_5node_timemstep1' : {
+                'units' : 1,
+                'library_hyperparameters' : {
+                    'activation' : 'relu',
+                    'recurrent_activation' : 'sigmoid',
+                    'num_sims' : 1,
+                    'num_layers': 5,
+                    'epochs': 10,
+                    'hidden_nodes': 25,
+                    'time_steps': 10,
+                }
+            },
+            'lstm_5node_timemstep2' : {
+                'units' : 1,
+                'library_hyperparameters' : {
+                    'activation' : 'relu',
+                    'recurrent_activation' : 'sigmoid',
+                    'num_sims' : 1,
+                    'num_layers': 5,
+                    'epochs': 10,
+                    'hidden_nodes': 25,
+                    'time_steps': 50,
+                }
+            },
+            'lstm_5node_timestep3' : {
+                'units' : 1,
+                'library_hyperparameters' : {
+                    'activation' : 'relu',
+                    'recurrent_activation' : 'sigmoid',
+                    'num_sims' : 1,
+                    'num_layers': 5,
+                    'epochs': 10,
+                    'hidden_nodes': 25,
+                    'time_steps': 100,
+                }
+            },
+            'lstm_5node_hiddennodes1' : {
+                'units' : 1,
+                'library_hyperparameters' : {
+                    'activation' : 'relu',
+                    'recurrent_activation' : 'sigmoid',
+                    'num_sims' : 1,
+                    'num_layers': 5,
+                    'epochs': 10,
+                    'hidden_nodes': 10,
+                    'time_steps': 25,
+                }
+            },
+            'lstm_5node_hiddennodes2' : {
+                'units' : 1,
+                'library_hyperparameters' : {
+                    'activation' : 'relu',
+                    'recurrent_activation' : 'sigmoid',
+                    'num_sims' : 1,
+                    'num_layers': 5,
+                    'epochs': 10,
+                    'hidden_nodes': 25,
+                    'time_steps': 25,
+                }
+            },
+            'lstm_5node_hiddennodes3' : {
+                'units' : 1,
+                'library_hyperparameters' : {
+                    'activation' : 'relu',
+                    'recurrent_activation' : 'sigmoid',
+                    'num_sims' : 1,
+                    'num_layers': 5,
+                    'epochs': 10,
+                    'hidden_nodes': 50,
+                    'time_steps': 25,
+                }
+            },
+            'lstm_5node_layers1' : {
+                'units' : 1,
+                'library_hyperparameters' : {
+                    'activation' : 'relu',
+                    'recurrent_activation' : 'sigmoid',
+                    'num_sims' : 1,
+                    'num_layers': 1,
+                    'epochs': 10,
+                    'hidden_nodes': 25,
+                    'time_steps': 50,
+                }
+            },
+            'lstm_5node_layers2' : {
+                'units' : 1,
+                'library_hyperparameters' : {
+                    'activation' : 'relu',
+                    'recurrent_activation' : 'sigmoid',
+                    'num_sims' : 1,
+                    'num_layers': 2,
+                    'epochs': 10,
+                    'hidden_nodes': 25,
+                    'time_steps': 50,
+                }
+            },
+            'lstm_5node_layers3' : {
+                'units' : 1,
+                'library_hyperparameters' : {
+                    'activation' : 'relu',
+                    'recurrent_activation' : 'sigmoid',
+                    'num_sims' : 1,
+                    'num_layers': 5,
+                    'epochs': 10,
+                    'hidden_nodes': 25,
+                    'time_steps': 50,
+                }
+            },
+            'lstm_5node_layers4' : {
+                'units' : 1,
+                'library_hyperparameters' : {
+                    'activation' : 'relu',
+                    'recurrent_activation' : 'sigmoid',
+                    'num_sims' : 1,
+                    'num_layers': 10,
+                    'epochs': 10,
+                    'hidden_nodes': 25,
+                    'time_steps': 50,
+                }
+            },
+            'lstm_5node_layers5' : {
+                'units' : 1,
+                'library_hyperparameters' : {
+                    'activation' : 'relu',
+                    'recurrent_activation' : 'sigmoid',
+                    'num_sims' : 1,
+                    'num_layers': 25,
+                    'epochs': 10,
+                    'hidden_nodes': 25,
+                    'time_steps': 50,
+                }
+            },
+            'lstm_5node_layers6' : {
+                'units' : 1,
+                'library_hyperparameters' : {
+                    'activation' : 'relu',
+                    'recurrent_activation' : 'sigmoid',
+                    'num_sims' : 1,
+                    'num_layers': 50,
+                    'epochs': 10,
+                    'hidden_nodes': 25,
+                    'time_steps': 50,
                 }
             },
         }

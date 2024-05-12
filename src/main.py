@@ -1,12 +1,10 @@
 import numpy as np 
 import pandas as pd 
 from lstm_logger import logger as logging
-from lstm_logger import logger
-from os import path, getcwd
+from os import path
 import os
 from analysis_manager import AnalysisManager # The main driver for the lstm-sde-stock-forecasting project.
 from model_parameters import create_models_dict
-from utils import timer_decorator
 
 def preprocessing_callback(df):
     # There are likely certain things that we don't want to include in the dataset...
@@ -54,20 +52,27 @@ if __name__ == "__main__":
     # INFO will print out a ton of stuff, but is useful for debugging
     # Set the logger 
     #Options are DEBUG, INFO, WARNING, ERROR, and CRITICAL. These are increasing order and will change what gets printed out
-    logging.setLevel("INFO")
+    logging.setLevel("WARNING")
+    start_str = "*" * 50
+    logging.info(f"{start_str}{start_str} \n\n Starting the lstm-sde-stock-forecasting project {start_str}{start_str} \n\n")
+    logging.info("Starting the lstm-sde-stock-forecasting project")
     # Create an analysis object for each stock
     # Create a list of stock names
-    # stock_names = ["AAPL", "AMD", "AMZN", "EA", "GOOG", "INTC", "MSFT", "NFLX", "NVDA"]
-    stock_names = ["AAPL"]
-
+    stock_names = ["AAPL"] #, "AMZN", "GOOG", "INTC", "MSFT", "NFLX", "NVDA"]
+    stock_names = ["AMD", "AMZN", "EA"]
+    stock_names = ["AAPL", "AMD", "AMZN", "EA", "GOOG", "INTC", "MSFT", "NFLX", "NVDA"]
+    # stock_names = ["GOOG", "INTC"]
+    stock_names = ["NFLX"]
     # Create a list of stock dataframes
     stock_df_dict = {}
     raw_dir = path.join(os.path.dirname(os.path.realpath(__file__)), '..', 'input', '00_raw')
     output_dir = path.join(os.path.dirname(os.path.realpath(__file__)), '..', 'output')
+    #logging.set_logfile(output_dir, 'lstm_sde_stock_forecasting.log')
+
     for stock in stock_names:
         try: 
             stock_df_dict[stock] = pd.read_csv(path.join(raw_dir, stock, f'{stock}.csv'))
-        except FileNotFoundError as e:
+        except FileNotFoundError:
             print(f"File not found for {stock}")
             continue
 
@@ -82,8 +87,8 @@ if __name__ == "__main__":
         save_png=False,
         save_html=True,
         plotting = {'x_vars': 'Date', 'y_vars': None}, 
-        overwrite_out_dir=False,
-        load_previous_results=False # Load previous results, rather than refitting a model
+        overwrite_out_dir=True,
+        load_previous_results=False# Load previous results, rather than refitting a model
         )
     analysis.set_preprocessing_callback(preprocessing_callback)
     # Add the analysis objects to the analysis manager 
@@ -91,7 +96,7 @@ if __name__ == "__main__":
     
     analysis.preprocess_datasets()
     #analysis.validate_datasets()
-    models_dict = create_models_dict(gbm=True, lstm=True, lstm_sde=True)
+    models_dict = create_models_dict(gbm=True, lstm=False, lstm_sde=False)
     analysis.set_models_for_analysis_objs(models_dict=models_dict)
     analysis.run_analysis(run_descriptive=False, run_predictive=True)
     # Print the stock names

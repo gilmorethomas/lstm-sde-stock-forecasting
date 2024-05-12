@@ -161,7 +161,7 @@ class LSTMSDE_to_train(TimeSeriesModel):
                 for y_var, seed_num in y_var_seed_product]
     def _set_hyperparameter_defaults(self, model_params):
         if 'loss_fn' not in model_params:
-            logging.warning(f"No loss function specified. Defaulting to MSELoss")
+            logging.warning("No loss function specified. Defaulting to MSELoss")
             self.loss_fn = torch.nn.MSELoss()
         elif model_params['loss_fn'] == 'MSELoss':
             self.loss_fn = torch.nn.MSELoss()
@@ -224,7 +224,7 @@ class LSTMSDE_to_train(TimeSeriesModel):
         model_params = self.model_hyperparameters
 
         if 'optimizer' not in model_params:
-            logging.warning(f"No optimizer specified. Defaulting to Adam")
+            logging.warning("No optimizer specified. Defaulting to Adam")
             optimizer = torch.optim.Adam(model.parameters(), lr=model_params['learning_rate'])
             model_params['optimizer'] = ['adam']
         elif model_params['optimizer'].lower() == 'adam':
@@ -268,8 +268,8 @@ class LSTMSDE_to_train(TimeSeriesModel):
         losses = {y_var: {seed_num: [] for seed_num in range(self.num_sims)} for y_var in self.y_vars}
         y_pred = copy.deepcopy(losses)
         rmse = copy.deepcopy(losses)
-        y_vars_seeds = product(self.
-        y_vars, range(self.num_sims))
+        rmse_over_time = copy.deepcopy(losses)
+        y_vars_seeds = product(self.y_vars, range(self.num_sims))
         for y_var, seed_num in y_vars_seeds:
             logging.info(f'Training and evaluating LSTM SDE for {y_var} with seed {seed_num}') 
             losses[y_var][seed_num] = self._train(model=self.lstm_sdes[y_var][seed_num],
@@ -277,28 +277,31 @@ class LSTMSDE_to_train(TimeSeriesModel):
                         optimizer=self.optimizers[y_var], 
                         n_epochs=self.model_hyperparameters['num_epochs'], 
                         loss_fn=self.loss_fn)
-            y_pred[y_var][seed_num], rmse[y_var][seed_num] = {}, {}
+            y_pred[y_var][seed_num], rmse[y_var][seed_num], rmse_over_time[y_var][seed_num] = {}, {}, {}
             # evaluate train
-            y_pred[y_var][seed_num][DN.train_data], rmse[y_var][seed_num][DN.train_data] = self._eval(
+            eval_data =  self._eval(
                 eval_type = DN.train_data, model=self.lstm_sdes[y_var][seed_num], 
                 loss_fn=self.loss_fn, 
                 x_input=self.lstm_data[y_var][DN.tensors][DN.x][DN.train_data], 
                 y_target=self.lstm_data[y_var][DN.tensors][DN.y][DN.train_data])
+            y_pred[y_var][seed_num][DN.train_data], rmse[y_var][seed_num][DN.train_data], rmse_over_time[y_var][seed_num][DN.train_data] = eval_data
             # evaluate test 
-            y_pred[y_var][seed_num][DN.test_data], rmse[y_var][seed_num][DN.test_data] = self._eval(
+            eval_data = self._eval(
                 eval_type = DN.test_data, model=self.lstm_sdes[y_var][seed_num], 
                 loss_fn=self.loss_fn, 
                 x_input=self.lstm_data[y_var][DN.tensors][DN.x][DN.test_data], 
                 y_target=self.lstm_data[y_var][DN.tensors][DN.y][DN.test_data])
+            y_pred[y_var][seed_num][DN.test_data], rmse[y_var][seed_num][DN.test_data], rmse_over_time[y_var][seed_num][DN.test_data] = eval_data
             # evaluate evaluation_periods 
             for eval_name in self.evaluation_data_names:
-                y_pred[y_var][seed_num][eval_name], rmse[y_var][seed_num][DN.train_data] = self._eval(
+                eval_data = self._eval(
                     eval_type = DN.evaluation, 
                     model=self.lstm_sdes[y_var][seed_num], 
                     loss_fn=self.loss_fn, 
                     x_input=self.lstm_data[y_var][DN.tensors][DN.x][eval_name], 
-                    y_target=self.lstm_data[y_var][DN.tensors][DN.y][eval_name])
-                
+                    y_target=self.lstm_data[y_var][DN.tensors][DN.y][eval_name], 
+                    prev_x_input=self.lstm_data[y_var][DN.tensors][DN.x][DN.test_data], )
+                y_pred[y_var][seed_num][eval_name], rmse[y_var][seed_num][DN.train_data], rmse_over_time[y_var][seed_num][eval_name] = eval_data
         self.losses_over_time = losses
         self.rmse = rmse 
         data_dict = self._build_output_data(y_pred, copy.deepcopy(self.data_dict[DN.not_normalized]), copy.deepcopy(self.data_dict[DN.normalized])) 
@@ -338,8 +341,8 @@ class LSTMSDE_to_train(TimeSeriesModel):
                 eval_data_to_insert = this_data[eval_filter].numpy().reshape(-1, 1)
                 data_dict[eval_filter][f'{y_var}_{seed_num}'] = eval_data_to_insert
                 data_dict_not_norm[eval_filter][f'{y_var}_{seed_num}'] = self.scaler.inverse_transform(eval_data_to_insert)
-        data_dict = drop_nans_from_data_dict(data_dict, self, self.fit)
-        data_dict_not_norm = drop_nans_from_data_dict(data_dict_not_norm, self, self.fit)
+        data_dict = drop_nans_from_data_dict(copy.deepcopy(data_dict), calling_class=self.__class__, context='fit')
+        data_dict_not_norm = drop_nans_from_data_dict(copy.deepcopy(data_dict_not_norm), calling_class=self.__class__, context='fit')
         return {DN.normalized : data_dict, DN.not_normalized : data_dict_not_norm}
     @timer_decorator
     def _train(self, model, dataloader, optimizer, n_epochs, loss_fn):
@@ -354,6 +357,7 @@ class LSTMSDE_to_train(TimeSeriesModel):
         """    
         losses_over_time = []
         mse_over_time = []
+        timenow = pd.Timestamp.now()
         for epoch in range(n_epochs):
             model.train()
             epoch_losses = []
@@ -368,12 +372,17 @@ class LSTMSDE_to_train(TimeSeriesModel):
             epoch_loss = np.mean(epoch_losses)
             # mse_over_time.append() May ultimately want to pull this in. zsince our loss function is mse, it should be the same thing I think ?
             if (epoch + 1 ) % 10 == 0:
-                logging.info(f'Epoch {epoch+1}/{n_epochs}, Mean Loss: {np.mean(epoch_losses)}')
+                # Log the time difference and loss in minutes and seconds 
+                time_diff = pd.Timestamp.now() - timenow
+                time_diff_minutes = time_diff.seconds / 60
+                time_diff_seconds = time_diff.seconds % 60
+                logging.info(f"Epoch {epoch + 1} completed in {time_diff_minutes} m, {time_diff_seconds} s with loss {epoch_loss}")
+
             losses_over_time.append(np.mean(epoch_losses))
         return losses_over_time
     def save(self):
-        logging.info('LSTM SDE save not implemented')
-    def _eval(self, eval_type, model, loss_fn, x_input, y_target):
+        logging.info('LSTM SDE save not implemented')   
+    def _eval(self, eval_type, model, loss_fn, x_input, y_target, prev_x_input=None):
         """Tests the model
 
         Args:
@@ -381,44 +390,75 @@ class LSTMSDE_to_train(TimeSeriesModel):
             loss_fn (pytorch loss function): The loss function to use
             x_input (pytorch tensor): The test  input
             y_target (pytorch tensor): The test targets
+            prev_x_input (pytorch tensor, optional): 
+                The previous input. Defaults to None. This is intended for the eval data, where we need to use the last values of test data for initial steps of the eval data
         Returns:
             _type_: _description_
         """    
         #model.eval()
-        #if eval_type == 'evaluation': 
-        #    y_pred_train, rmse = predict_future_steps()
-        if 1 == 1: # else: 
+        if eval_type == 'evaluation': 
+            y_pred_train, rmses_over_time, rmse_avg = self.predict_future_steps(
+                model=model, 
+                prev_input_data=prev_x_input, 
+                y_target=y_target, 
+                loss_fn=loss_fn, 
+                num_steps=x_input.shape[0]
+            )
+        else: 
             with torch.no_grad():
                 y_pred_train = model(x_input)
                 y_pred_train = y_pred_train.squeeze()  # remove extra dimensions from outputs
-                rmse = np.sqrt(loss_fn(y_pred_train, y_target))
-        #print("Epoch %d: train RMSE %.4f, test RMSE %.4f" % (epoch, train_rmse, test_rmse))
-        logging.error("Need to fix eval to pull in predict_future_steps")
-        return y_pred_train, rmse
-    
-    def predict_future_steps(model, initial_input_data, n_steps):
-        """Predicts n future steps using an autoregressive approach.
+                # Get the rmses for the predictions
+                rmses_over_time = [np.sqrt(loss_fn(y_pred_train[i], y_target[i])) for i in range(len(y_pred_train))]
+                rmses_over_time = torch.stack(rmses_over_time)
+                rmse_avg = torch.mean(rmses_over_time).numpy()
+        # Turn these into numpy arrays 
+
+        return y_pred_train, rmse_avg, rmses_over_time.numpy() #torch.stack(rmses_over_time).numpy()
+
+    def predict_future_steps(self, model, prev_input_data, y_target, loss_fn, num_steps):
+        """Performs auto-regressive prediction for the evaluation data, one day at a time 
 
         Args:
-            model: The trained model.
-            initial_input_data: The input data to start the predictions.
-            n_steps: The number of future steps to predict.
+            model (nn.Module): The trained model
+            prev_input_data (tensor): Previous input data, 
+            y_target (tensor): Target data
+            loss_fn (callable): Loss function
+            num_steps (int): Number of future steps to predict
 
         Returns:
-            A list of predictions.
-        """
-        input_data = initial_input_data.copy()
+            predictions (tensor): Predicted future steps
+            rmse (float): Root mean square error of the predictions
+        """        
+        input_data = prev_input_data.clone()
+        # Reshape the data to pull only the last entry with the number of timesteps equal to the second dimension
+        input_data = input_data[-1, :, :].unsqueeze(0)
+        window_size = self.model_hyperparameters['time_steps']
         predictions = []
+        rmses = []
+        with torch.no_grad():
+            for i in range(num_steps):
+                # Use the model to predict the next step
+                prediction = model(input_data).unsqueeze(1)  # Add batch dimension
+                # Copy the prediction to a new var
+                prediction_one_dim = prediction.clone()
+                # Get a single prediction, since the prediction is a tensor
+                for i in range(len(prediction_one_dim.shape)):
+                    prediction_one_dim = prediction_one_dim.squeeze(0)
+                predictions.append(prediction_one_dim)
+                # Append the prediction to the input data and remove the oldest value
+                input_data = torch.cat((input_data[:, 1:, :], prediction), dim=1)
+        
+                rmse = np.sqrt(loss_fn(prediction_one_dim, y_target[i]))  # Use the last prediction for RMSE calculation
+                rmses.append(rmse)
+        # Convert from list into single tensor
+        rmses = torch.stack(rmses)
+        predictions = torch.stack(predictions)
+        # Calculate the average rmse for the predictions
+        rmse_avg = torch.mean(rmses)
 
-        for _ in range(n_steps):
-            # Use the model to predict the next step
-            prediction = model.predict(input_data)
-            predictions.append(prediction)
+        return predictions, rmses, rmse_avg
 
-            # Append the prediction to the input data and remove the oldest value
-            input_data = np.append(input_data[1:], prediction)
-
-        return predictions
     #@profile
     def _prefit_functions(self): 
         """_summary_
@@ -556,7 +596,7 @@ class LSTMSDE_to_train(TimeSeriesModel):
     @classmethod
     def load_from_previous_output(cls, class_params):# , save_dir, model_name):
         instance = super().load_from_previous_output(class_params)
-        return instance
+        return copy.deepcopy(instance)
         # Any custom stuff needed here
     
 

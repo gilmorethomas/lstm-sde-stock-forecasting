@@ -1,11 +1,8 @@
-from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor
 # from pathos.multiprocessing import ProcessingPool as ProcessPoolExecutor
 #from tqdm.auto import tqdm 
-from threadpoolctl import threadpool_limits 
-import multiprocess as mp 
 import time 
 from lstm_logger import logger as logging
-import colorlog
 import pandas as pd 
 
 def timer_decorator(func): 
@@ -80,7 +77,7 @@ def drop_nans_from_data_dict(data_dict, calling_class=None, context=None):
                 }
             }
 
-        context (function): The function that is calling this function
+        context (function or string): The function that is calling this function
 
     Returns:
         _type_: _description_
@@ -89,7 +86,11 @@ def drop_nans_from_data_dict(data_dict, calling_class=None, context=None):
     data_dict, log_messages = _drop_nans_from_data_dict(data_dict, log_messages)
     if not len(log_messages) == 0:
         if calling_class is not None and context is not None:
-            log_messages = [(f"Dropping NaNs from data dictionary in in class {type(calling_class)}, function {context.__name__}")] + log_messages
+            if not isinstance(context, str):
+                context = context.__name__ 
+            if not isinstance(calling_class, str): 
+                calling_class = calling_class.__name__
+            log_messages = [(f"Dropping NaNs from data dictionary in in class {calling_class}, function {context}")] + log_messages
         else:
             log_messages = ["Dropping NaNs from data dictionary"] + log_messages
         logging.warning("\n".join(log_messages))

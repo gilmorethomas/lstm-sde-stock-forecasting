@@ -2,17 +2,12 @@ from lstm_logger import logger as logging
 from project_globals import DataNames as DN
 import numpy as np
 import pandas as pd
-from sklearn.metrics import mean_squared_error
-import math
  
 from tensorflow.keras.layers import LSTM as keras_LSTM
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense
-from tensorflow.keras.layers import Input
-from tensorflow.keras.optimizers import Adam
 from timeseriesmodel import TimeSeriesModel
-from sklearn.preprocessing import MinMaxScaler
-from utils import parallelize
+from utils import parallelize, drop_nans_from_data_dict
 import copy
 
 class LSTM(TimeSeriesModel):
@@ -150,8 +145,10 @@ class LSTM(TimeSeriesModel):
 
         # Execute all the models in parallel.. TODO.. we cannot return the model if we parallelize
         out_data = parallelize(self._gen_and_predict_for_seed, parallelize_args, run_parallel=False)    
+        assert len(out_data) == self.model_hyperparameters['num_sims'], "Not all models were trained"
+        assert not any(None in data for data in out_data), "Some models were not trained"
 
-        y_var_data = self._bould_output_data(out_data, copy.deepcopy(self.data_dict[DN.normalized]), copy.deepcopy(self.data_dict[DN.not_normalized]), y_var)
+        y_var_data = self._build_output_data(out_data, copy.deepcopy(self.data_dict[DN.normalized]), copy.deepcopy(self.data_dict[DN.not_normalized]), y_var)
         
         # TODO get rid of the temp removal of the filters 
         self.test_split_filter = tmp_test_split_filter
@@ -159,7 +156,7 @@ class LSTM(TimeSeriesModel):
         self.evaluation_filters = tmp_evaluation_filters
 
         return y_var_data
-    def _bould_output_data(self, out_data, data_dict, data_dict_not_norm, y_var):
+    def _build_output_data(self, out_data, data_dict, data_dict_not_norm, y_var):
         """Builds the output data for a single y variable. TODO ultimately make this a common function between lstm_sde and lstm 
         since they are trying to accomplish the same thing from an interface perspective
 
@@ -186,19 +183,20 @@ class LSTM(TimeSeriesModel):
             data_dict[DN.train_data].loc[:, y_var + f'_{seed_num}'] = np.concatenate([nan_array, train_data_fit_one_seed['train_predict']])
             data_dict_not_norm[DN.train_data].loc[:, y_var + f'_{seed_num}'] = self.scaler.inverse_transform(np.concatenate([nan_array, train_data_fit_one_seed['train_predict']]))
             # drop nans to account for windows for rollback data
-            data_dict[DN.train_data].dropna(inplace=True)
-            data_dict_not_norm[DN.train_data].dropna(inplace=True) 
-            [data_dict_not_norm[eval_data].dropna(inplace=True) for eval_data in self.evaluation_data_names]
+            #data_dict[DN.train_data].dropna(inplace=True)
+            #data_dict_not_norm[DN.train_data].dropna(inplace=True) 
+            #[data_dict_not_norm[eval_data].dropna(inplace=True) for eval_data in self.evaluation_data_names]
 
             for eval_filter in self.evaluation_data_names:
                 data_dict[eval_filter].loc[: ,y_var + f'_{seed_num}'] = train_data_fit_one_seed[eval_filter]
                 data_dict_not_norm[eval_filter].loc[: ,y_var + f'_{seed_num}'] = self.scaler.inverse_transform(train_data_fit_one_seed[eval_filter])
             self.model_objs.append(model)
-
-
-        return {DN.normalized : data_dict, DN.not_normalized: data_dict_not_norm}
+        data_dict = drop_nans_from_data_dict(copy.deepcopy(data_dict), calling_class=self.__class__, context='fit')
+        data_dict_not_norm = drop_nans_from_data_dict(copy.deepcopy(data_dict_not_norm), calling_class=self.__class__, context='fit')
+        data_dict_all = {DN.normalized : data_dict, DN.not_normalized: data_dict_not_norm}
+        return data_dict_all 
     
-    def _gen_and_predict_for_seed(self, seed_num, x_y_data_dict, model_hyperparameters):
+    def _gen_and_predict_for_seed(self, seed_num, x_y_data_dict, model_hyperparameters, autoregressive=True):
         """Generates and predicts the model for a given seed
 
         Args:
@@ -227,10 +225,54 @@ class LSTM(TimeSeriesModel):
         predictions['train_predict'] = model.predict(x_y_data_dict[DN.train_data][0]) 
         predictions['test_predict'] = model.predict(x_y_data_dict[DN.test_data][0])
         for eval_filter in self.evaluation_data_names:
-            predictions[eval_filter] = model.predict(x_y_data_dict[eval_filter][0])
+            if autoregressive:
+                predictions[eval_filter] = self.autoregressive_predict(
+                    model=model, 
+                    num_steps = x_y_data_dict[eval_filter][1].shape[0], 
+                    prev_input_data=x_y_data_dict[DN.test_data][0])
+            else: 
+                predictions[eval_filter] = model.predict(x_y_data_dict[eval_filter][0])
         logging.info('Done predicting performance for train, test, and evaluation data')
 
         return seed_num, model, predictions
+    def autoregressive_predict(self, model, prev_input_data, num_steps):
+        """Predicts the next num_steps of the data using an autoregressive model
+
+        Args:
+            x_data (_type_): _description_
+            num_steps (_type_): _description_
+
+        Returns:
+            _type_: _description_
+        """        
+        # Predict the next num_steps of the data using an autoregressive model
+        # This will be used for the evaluation data
+        # We will use the model to predict the next num_steps of the data
+        # We will then use the predicted data to predict the next num_steps of the data
+        # We will repeat this process num_steps times / the window size 
+        # We will return the predicted data
+        
+            # Get the initial input data
+        input_data = prev_input_data[-self.model_hyperparameters['time_steps']:] 
+        predictions = []
+        logging.info(f'Predicting the next {num_steps} of the data using an autoregressive model')
+        num_iters = int(np.ceil(num_steps / self.model_hyperparameters['time_steps']))
+        for i in range(num_steps):
+                if i % 100 == 0:
+                    logging.info(f'Predicting step {i} of {num_steps}')
+                # Use the model to predict the next step. Don't make verbose, because there are a lot of steps
+                prediction = model.predict(input_data, verbose=0)
+                predictions.append(prediction[-1])
+
+                # Append the prediction to the input data and remove the oldest value
+                input_data = np.concatenate((input_data, prediction), axis=1)
+                input_data = input_data[:, 1:]
+                # drop the first value
+                #input_data = input_data[self.model_hyperparameters['time_steps']:]
+        predictions = np.array(predictions).reshape(-1, 1)
+        predictions = predictions[0:num_steps]
+        assert predictions.shape[0] == num_steps, "Predictions are not the correct shape"
+        return predictions
 
     def _generate_model_for_seed(self, x_train, y_train, model_hyperparameters):
         """Generates a model for a given seed
