@@ -118,7 +118,7 @@ class Model():
         # Build model response raw list from y_vars with model name and number of sims appended
         self.model_responses[DN.raw] = [f'{y_var}_{i}' for y_var in self.y_vars for i in range(self.model_hyperparameters['num_sims'])]
         # Build model response proc list from y_vars
-        proc_suffixes = ['mean', 'min_mean_model', 'max_mean_model', 'min_max_mean_avg']
+        proc_suffixes = ['mean'] #, 'min_mean_model', 'max_mean_model', 'min_max_mean_avg']
         self.model_responses[DN.proc] = []
         [self.model_responses[DN.proc].append(f'{y_var}_{suffix}') for y_var in self.y_vars for suffix in proc_suffixes]
     def _normalize_data_dict(self, data_dict, y_col):
@@ -272,7 +272,7 @@ class Model():
                 logging.error(f"Dataframe {data_type} does not exist in the data dictionary or does not have expected columns")
                 return
         else: 
-            import pdb; pdb.set_trace()
+            #import pdb; pdb.set_trace()
             raise NotImplementedError(f"Plot fit not implemented for data type {data_type}.")
         # Rename the columns with {y_var}_{model_name}_{seed} to be {y_var}. This is so we can pass the 
         for key in all_data.keys():
@@ -385,7 +385,7 @@ class Model():
             logging.error('Train Data Fit Cannot be None')
         if data_dict[DN.train_data] is not None:
             logging.debug('Calculating model performance for test data')
-            test_performance = self._calculate_model_performance(data_dict[DN.train_data])
+            test_performance = self._calculate_model_performance(data_dict[DN.test_data])
             self.model_performance['test'] = test_performance
         else:
             logging.error('Test Data Fit Cannot be None')
@@ -464,27 +464,27 @@ class Model():
 
         for k, v in self.data_dict[DN.normalized].items():
             # Write the data, with the model data to the predicted directory
-            pd.DataFrame(v).to_csv(path.join(norm_pred_dir, f'{k}.csv'), float_format='%.2f')
+            pd.DataFrame(v).to_csv(path.join(norm_pred_dir, f'{k}.csv'), float_format='%.2e')
             # Write just the x, y vars to the data directory
-            pd.DataFrame(v[self.x_vars + self.y_vars]).to_csv(path.join(norm_data_dir, f'{k}.csv'), float_format='%.2f')
+            pd.DataFrame(v[self.x_vars + self.y_vars]).to_csv(path.join(norm_data_dir, f'{k}.csv'), float_format='%.2e')
 
         for k, v in self.data_dict[DN.not_normalized].items():
             # Write the data, with the model data to the predicted directory
             pd.DataFrame(v).to_csv(path.join(not_norm_pred_dir, f'{k}.csv'))
             # Write just the x, y vars to the data directory
-            pd.DataFrame(v[self.x_vars + self.y_vars]).to_csv(path.join(norm_data_dir, f'{k}.csv'), float_format='%.2f')
+            pd.DataFrame(v[self.x_vars + self.y_vars]).to_csv(path.join(norm_data_dir, f'{k}.csv'), float_format='%.2e')
 
 
         # Write the model performance to csv
         for k, v in self.model_performance.items():
-            v.to_csv(path.join(perf_dir, f'{k}.csv'), float_format='%.2f')
+            v.to_csv(path.join(perf_dir, f'{k}.csv'), float_format='%.2e')
         # Write the model hyperparameters to csv
         try:
-            pd.DataFrame(self.model_hyperparameters, index=[0]).to_csv(path.join(params_dir, f'{DN.params}.csv'), float_format='%.2f')
+            pd.DataFrame(self.model_hyperparameters, index=[0]).to_csv(path.join(params_dir, f'{DN.params}.csv'), float_format='%.2e')
         except Exception as e:
             try:
                 logging.warning(f"Error writing model hyperparameters to csv: {e}, trying again")
-                pd.DataFrame(self.model_hyperparameters).to_csv(path.join(params_dir, f'{DN.params}.csv'), float_format='%.2f')
+                pd.DataFrame(self.model_hyperparameters).to_csv(path.join(params_dir, f'{DN.params}.csv'), float_format='%.2e')
             except Exception as e2:
                 logging.error(f"Error writing model hyperparameters to csv: {e2}")
     def _validate_hyperparameters(self):

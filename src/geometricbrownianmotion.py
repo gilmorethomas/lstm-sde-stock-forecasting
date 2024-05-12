@@ -265,3 +265,8 @@ class _GeometricBrownianMotion():
             W[i] = W[i-1] + dW
 
         return t, S
+    
+    @classmethod
+    def load_from_previous_output(cls, class_params):# , save_dir, model_name):
+        instance = super().load_from_previous_output(class_params)
+        return instance

@@ -596,7 +596,7 @@ class LSTMSDE_to_train(TimeSeriesModel):
     @classmethod
     def load_from_previous_output(cls, class_params):# , save_dir, model_name):
         instance = super().load_from_previous_output(class_params)
-        return instance
+        return copy.deepcopy(instance)
         # Any custom stuff needed here
     
 

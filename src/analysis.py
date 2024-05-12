@@ -1,5 +1,5 @@
 from os import path, makedirs
-
+from copy import deepcopy
 import pandas as pd
 
 from lstm_logger import logger as logging
@@ -131,9 +131,9 @@ class Analysis():
         """        
         # Validate the models dictionary 
         self._validate_models()
-
+        this_dict = deepcopy(self.models_dict)
         # Each type of model will have a different set of hyperparameters, so we need to create a model for each set of hyperparameters
-        for model_type, all_models_for_type in self.models_dict.items():
+        for model_type, all_models_for_type in this_dict.items():
             if model_type.lower() == 'lstm' and all_models_for_type is not None and len(all_models_for_type) > 0: 
                 logging.info("Creating LSTM models")
                 for model_name, model_dict in all_models_for_type.items():
@@ -156,9 +156,10 @@ class Analysis():
                         model = LSTM(**model_args)
                         self._call_model_funcs(model)
                     else: 
-                        model = LSTM.load_from_previous_output(model_args)
+                        model = deepcopy(LSTM.load_from_previous_output(model_args))
+                        self._report_only(model)
                     # Save the model off in the models_dict
-                    self.models_dict[model_type][model_name]['model_object'] = model
+                    this_dict[model_type][model_name]['model_object'] = model
 
             elif model_type.lower() == 'gbm':
                 logging.info("Creating GBM models")
@@ -182,9 +183,11 @@ class Analysis():
                         model = GeometricBrownianMotion(**model_args) 
                         self._call_model_funcs(model)
                     else: 
-                        model = GeometricBrownianMotion.load_from_previous_output(model_args)
+                        model = deepcopy(GeometricBrownianMotion.load_from_previous_output(model_args))
+                        self._report_only(model)
+
                     # Save the model off in the models_dict
-                    self.models_dict[model_type][model_name]['model_object'] = model
+                    this_dict[model_type][model_name]['model_object'] = model
 
             elif model_type.lower() == 'lstmsde':
                 logging.info("Creating LSTM SDE models")
@@ -209,12 +212,16 @@ class Analysis():
                         model = LSTMSDE(**model_args) 
                         self._call_model_funcs(model)
                     else: 
-                        model = LSTMSDE.load_from_previous_output(model_args)
+                        model = deepcopy(LSTMSDE.load_from_previous_output(model_args))
+                        self._report_only(model)
+
                     # Save the model off in the models_dict
-                    self.models_dict[model_type][model_name]['model_object'] = model
+                    this_dict[model_type][model_name]['model_object'] = model
 
             else:   
                 logging.error(f"Model {model_type} not implemented yet")
+
+        self.models_dict = this_dict
     def run_cross_model(self):
         """Method used to run cross-model analysis. This method will combine the results of all models in the models_dict
         and write a report for each model type and for all models. The results will be plotted and written to the output directory.
@@ -376,17 +383,22 @@ class Analysis():
             # Create a dictionary to store the plots for each datatype
             if k == 'all_data':
                 continue
-            for modelkey, modelvals in model_dict.items():
-                this_data = modelvals.model_performance[k]
-                # Make a multiindex dataframe where the first index is the modelname and the second is the existing index 
-                this_data['model_name'] = modelkey
 
-                this_data.set_index(['model_name'], append=True, inplace=True)
+            for modelkey, modelvals in model_dict.items():
+                this_data = modelvals.model_performance[k].copy(deep=True)
+                #this_hyperparams = modelvals.model_hyperparameters
+                this_data = this_data[model_dict[modelkey].model_responses['proc']]
+                # Make a multiindex dataframe where the first index is the modelname and the second is the existing index 
+                this_data['model_type'] = model_dict[modelkey].__class__.__name__  
+                this_data['model_name'] = modelkey
+                this_data = this_data.reset_index().pivot(index=['model_type', 'model_name'], columns='index', values=model_dict[modelkey].model_responses['proc'])
+                #this_hyperparams = this_data.reset_index().pivot(index=['model_type', 'model_name'], columns='index', values=model_dict[modelkey].model_responses['proc'])
+
                 if performance_struct[k] is None:
                     performance_struct[k] = this_data
                 else: 
                     performance_struct[k] = pd.concat([performance_struct[k], this_data])
-
+        #import pdb; pdb.set_trace()
         # Finalize the plot for each plot in figs 
         for k, df in performance_struct.items():
             if df is None: 
@@ -396,7 +408,23 @@ class Analysis():
             if not path.exists(path.join(output_dir, MS.perf)):
                 makedirs(path.join(output_dir, MS.perf))
             logging.info(f"Writing performance metrics for {k} to {output_file}")
-            df.to_csv(output_file, float_format='%.2f')
+            # Reindex the csv so the model name is the first column, and R2, MAE, and RMSE are columns 
+            
+            df.to_csv(output_file, float_format='%.2e')
+
+        # Build the hyperparameters dataframe
+        hyperparams = {model_type: {model_name: model_dict[model_name].model_hyperparameters for model_name in model_dict}}
+        params_list = []
+        for model_type, model_type_params in hyperparams.items():
+            df = pd.DataFrame.from_dict(model_type_params, orient='index')
+            df['model_type'] = model_type
+            df.index.name = 'model_name'
+            df = df.reset_index().set_index(['model_type', 'model_name'])
+            params_list.append(pd.DataFrame.from_dict(model_type_params, orient='index'))
+        params_df = pd.concat(params_list)
+        if not path.exists(path.join(output_dir, DN.params)):
+            makedirs(path.join(output_dir, DN.params))
+        params_df.to_csv(path.join(output_dir, DN.params, 'hyperparameters.csv'), float_format='%.2e')
 
     @timer_decorator
     def _call_model_funcs(self, model):
@@ -410,6 +438,21 @@ class Analysis():
             model.save()
             model.plot()
             model.report()
+            return True
+        except Exception as e:
+            logging.error(f"Error occurred during analysis for {model.model_name}: {e}")
+            return False
+    def _report_only(self, model):
+        """Helper function to call all model functions
+        Args:
+            model (_type_): _description_
+        """        
+        try:
+            # model.split_data()
+            # model.fit()
+            # model.save()
+            # model.plot()
+            #model.report()
             return True
         except Exception as e:
             logging.error(f"Error occurred during analysis for {model.model_name}: {e}")

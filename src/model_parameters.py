@@ -68,24 +68,24 @@ def create_models_dict(gbm=True, lstm=True, lstm_sde=True):
                 },
             },
 
-            'gbm_calculated_20_days' : {
-                DN.params: {
-                    'calculate_mu' : True, 
-                    'calculate_sigma': True,
-                    'window_size': 20,
-                    'dt' : 1, # day 
-                    'num_sims' : 5
-                },
-            },
-            'gbm_calculated_50_days' : {
-                DN.params: {
-                    'calculate_mu' : True, 
-                    'calculate_sigma': True,
-                    'window_size': 50,
-                    'dt' : 1,
-                    'num_sims' : 5
-                },
-            }  ,
+            # 'gbm_calculated_20_days' : {
+            #     DN.params: {
+            #         'calculate_mu' : True, 
+            #         'calculate_sigma': True,
+            #         'window_size': 20,
+            #         'dt' : 1, # day 
+            #         'num_sims' : 5
+            #     },
+            # },
+            # 'gbm_calculated_50_days' : {
+            #     DN.params: {
+            #         'calculate_mu' : True, 
+            #         'calculate_sigma': True,
+            #         'window_size': 50,
+            #         'dt' : 1,
+            #         'num_sims' : 5
+            #     },
+            # }  ,
             'gbm_calculated_500_days' : {
                 DN.params: {
                     'calculate_mu' : True, 

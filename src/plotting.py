@@ -115,7 +115,7 @@ def plot_multiple_dfs(trace_name_df_dict, title, x_cols, y_cols, plot_type, outp
 
         finalize_plot(fig=fig, title=out_title, filename=f'{output_name}_{x_col}_vs_{y_col}' , output_dir=output_dir, save_png=save_png, save_html=save_html)
 
-def plot(df, x_col, y_col, plot_type, trace_name, fig=None, color=None):
+def plot(df, x_col, y_col, plot_type, trace_name, fig=None, color=None, groupbyCols=None):
     """Plots a single x, y combination
     
     Args:
@@ -133,8 +133,6 @@ def plot(df, x_col, y_col, plot_type, trace_name, fig=None, color=None):
         fig = go.Figure()
         fig.update_layout(
             title=f"{x_col} vs {y_col}",
-            xaxis_title=x_col,
-            yaxis_title=y_col,
         )
     if plot_type == 'scatter':
         # add a trace to the figure, using markers and color 
@@ -152,11 +150,28 @@ def plot(df, x_col, y_col, plot_type, trace_name, fig=None, color=None):
             marker=dict(color=color), 
             name=trace_name))    
     elif plot_type == 'bar':
-        # add a bar trace to the figure
-        fig.add_trace(go.Bar(x=df[x_col], 
-            y=df[y_col], 
-            marker=dict(color=color), 
-            name=f"{x_col} vs {y_col}"))
+        if groupbyCols is not None:
+            data = [] 
+            for group, groupdf in df.groupby(groupbyCols): 
+                # add a bar trace to the figure
+                # get rid of the group name in the x columns 
+                groupdf = groupdf.copy()
+                #import pdb; pdb.set_trace()
+                #groupdf.rename(columns={x_col: x_col.replace('gbm', '').replace('lstm_sde', '').replace('lstm', '')}, inplace=True)
+                data.append(go.Bar(x=groupdf[x_col], 
+                    y=groupdf[y_col], 
+                    marker=dict(color=color), 
+                    name=' '.join(group), 
+                    cliponaxis=False,))
+                
+            layout = go.Layout(barmode='group')
+            fig = go.Figure(data=data, layout=layout)
+        else: 
+            # add a bar trace to the figure
+            fig.add_trace(go.Bar(x=df[x_col], 
+                y=df[y_col], 
+                marker=dict(color=color), 
+                name=f"{x_col} vs {y_col}"))
     else: 
         logging.error(f"Plot type {plot_type} not implemented")
         return None
@@ -207,7 +222,7 @@ def plot_multiple_y_cols(df, x_col, y_cols, plot_type, output_dir, output_name, 
                 save_html=save_html)
     return fig 
 
-def finalize_plot(fig, title, filename, output_dir, save_png=True, save_html=True, make_title_replacements=True):
+def finalize_plot(fig, title, filename, output_dir, save_png=True, save_html=True, make_title_replacements=True, plot_type=None, xaxis_title=None, yaxis_title=None):
     """Writes a plot to a png and html file
 
     Args:
@@ -228,6 +243,30 @@ def finalize_plot(fig, title, filename, output_dir, save_png=True, save_html=Tru
         template='presentation',  # Use dark theme
         hovermode='closest',  # Show hover information for the closest point
     )
+    if plot_type is not None and plot_type == 'bar':
+        fig.update_layout(barmode='group')
+        #fig.update_xaxes(autorangeoptions={'maxallowed': 'max'})
+        fig.update_xaxes(tickangle=45, automargin=True)
+        #fig.updatelayout(margin=dict(l=100, r=100, t=100, b=100))
+        
+        # Set the y axis limits to be the 75th percentile of data + 20% of the range of the 25th to 75th percentile
+        # This is to make sure that the y axis is not too high
+        import numpy as np 
+        #y_75 = np.percentile(fig.data[0].y, 75)
+        #y_25 = np.percentile(fig.data[0].y, 25)
+        #if y_25 < 0:
+        #    yaxis_range1 = 2*y_25
+        #else:
+        #    yaxis_range1 = .5*y_25
+        #@if y_75 < 0:
+        #    yaxis_range2 = 2*y_75
+        
+        #fig.update_yaxes(range=[yaxis_range1, y_75*2])
+
+    if xaxis_title is not None:
+        fig.update_xaxes(title=xaxis_title)
+    if yaxis_title is not None:
+        fig.update_yaxes(title=yaxis_title)
     html_dir = path.join(output_dir, 'html')
     png_dir = path.join(output_dir, 'png')
     if not path.exists(output_dir):
